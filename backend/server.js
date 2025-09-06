@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import AWS from 'aws-sdk';
+import { S3Client, PutObjectCommand, HeadObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { Client, AccountId, PrivateKey, TopicCreateTransaction, TopicMessageSubmitTransaction, Hbar } from '@hashgraph/sdk';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
@@ -23,13 +23,19 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Configure AWS SDK for Filebase
-const s3 = new AWS.S3({
-  accessKeyId: process.env.FILEBASE_ACCESS_KEY_ID,
-  secretAccessKey: process.env.FILEBASE_SECRET_ACCESS_KEY,
-  endpoint: 'https://s3.filebase.com',
+// Configure AWS SDK v3 for Filebase
+const s3Client = new S3Client({
+  credentials: {
+    accessKeyId: process.env.FILEBASE_ACCESS_KEY_ID,
+    secretAccessKey: process.env.FILEBASE_SECRET_ACCESS_KEY
+  },
+  endpoint: {
+    url: 'https://s3.filebase.com'
+  },
   region: process.env.FILEBASE_REGION || 'us-east-1',
-  s3ForcePathStyle: true
+  forcePathStyle: true,
+  // Additional config for better Filebase compatibility
+  maxAttempts: 3
 });
 
 // Configure Hedera client
@@ -71,31 +77,157 @@ const upload = multer({
   }
 });
 
-// Utility function to generate proper IPFS CID
+// Utility function to upload content to IPFS via Filebase or generate CID locally
 const uploadToIPFS = async (content, filename, contentType = 'application/octet-stream') => {
+  // First, always generate the CID locally as a fallback
+  const hash = await sha256.digest(content);
+  const cid = CID.create(1, raw.code, hash);
+  const localCid = cid.toString();
+  
+  console.log(`📁 Processing content: ${filename} (${content.length} bytes) - CID: ${localCid}`);
+  
+  // Check if Filebase is configured
+  const filebaseConfigured = process.env.FILEBASE_ACCESS_KEY_ID && 
+                             process.env.FILEBASE_SECRET_ACCESS_KEY && 
+                             process.env.FILEBASE_BUCKET_NAME;
+  
+  if (!filebaseConfigured) {
+    console.log('⚠️ Filebase not configured, using local CID generation');
+    return {
+      success: true,
+      ipfsCid: localCid,
+      ipfsGatewayUrl: `https://ipfs.io/ipfs/${localCid}`,
+      ipfsGatewayUrls: [
+        `https://ipfs.io/ipfs/${localCid}`,
+        `https://gateway.pinata.cloud/ipfs/${localCid}`,
+        `https://cloudflare-ipfs.com/ipfs/${localCid}`
+      ],
+      timestamp: new Date().toISOString(),
+      note: 'CID generated locally - configure Filebase for IPFS network upload',
+      warning: 'Content not uploaded to IPFS network. Configure Filebase credentials for full functionality.'
+    };
+  }
+  
+  // Try Filebase upload
   try {
-    console.log(`📁 Generating IPFS CID for: ${filename} (${content.length} bytes)`);
+    console.log(`⬆️ Attempting Filebase upload...`);
+    console.log(`🔧 Using bucket: ${process.env.FILEBASE_BUCKET_NAME}`);
+    console.log(`🔧 Using region: ${process.env.FILEBASE_REGION || 'us-east-1'}`);
     
-    // Create proper IPFS CID using multiformats
-    const hash = await sha256.digest(content);
-    const cid = CID.create(1, raw.code, hash); // CID v1 with raw codec
-    const ipfsCid = cid.toString();
+    const timestamp = Date.now();
+    const uniqueKey = `hedera-notary/${timestamp}-${filename}`;
     
-    console.log(`🎯 Generated valid IPFS CID: ${ipfsCid}`);
+    const uploadParams = {
+      Bucket: process.env.FILEBASE_BUCKET_NAME,
+      Key: uniqueKey,
+      Body: content,
+      ContentType: contentType,
+      Metadata: {
+        'original-filename': filename,
+        'upload-timestamp': timestamp.toString(),
+        'content-size': content.length.toString(),
+        'local-cid': localCid
+      }
+    };
+
+    console.log(`🔧 Upload params:`, {
+      Bucket: uploadParams.Bucket,
+      Key: uploadParams.Key,
+      ContentType: uploadParams.ContentType,
+      ContentLength: content.length
+    });
+
+    const uploadCommand = new PutObjectCommand(uploadParams);
+    const uploadResult = await s3Client.send(uploadCommand);
+    console.log(`✅ Filebase upload successful:`, uploadResult);
     
-    // Simulate upload delay for realistic UX
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Try to get the actual IPFS CID from Filebase
+    let filebaseCid = localCid; // Default to local CID
+    
+    try {
+      const headCommand = new HeadObjectCommand({
+        Bucket: uploadParams.Bucket,
+        Key: uniqueKey
+      });
+      const headResult = await s3Client.send(headCommand);
+      
+      // Filebase might store CID in metadata or ETag
+      filebaseCid = headResult.Metadata?.cid || 
+                   headResult.Metadata?.['ipfs-hash'] ||
+                   headResult.ETag?.replace(/"/g, '') ||
+                   localCid;
+                   
+      console.log(`🎯 Filebase CID: ${filebaseCid}`);
+    } catch (metadataError) {
+      console.log('ℹ️ Using local CID as Filebase CID not available in metadata');
+    }
+    
+    const gatewayUrls = [
+      `https://ipfs.filebase.io/ipfs/${filebaseCid}`,
+      `https://ipfs.io/ipfs/${filebaseCid}`,
+      `https://gateway.pinata.cloud/ipfs/${filebaseCid}`,
+      `https://cloudflare-ipfs.com/ipfs/${filebaseCid}`
+    ];
     
     return {
       success: true,
-      ipfsCid: ipfsCid,
-      ipfsGatewayUrl: `https://ipfs.io/ipfs/${ipfsCid}`,
+      ipfsCid: filebaseCid,
+      ipfsGatewayUrl: gatewayUrls[0],
+      ipfsGatewayUrls: gatewayUrls,
+      filebaseUrl: `https://s3.filebase.com/${uploadParams.Bucket}/${uniqueKey}`,
       timestamp: new Date().toISOString(),
-      note: 'CID generated locally - content not pinned to IPFS network'
+      note: 'Content successfully uploaded to IPFS via Filebase'
     };
-  } catch (error) {
-    console.error('❌ IPFS CID generation error:', error);
-    throw new Error(`Failed to generate IPFS CID: ${error.message}`);
+    
+  } catch (filebaseError) {
+    console.error('❌ Filebase upload failed:', filebaseError.message);
+    console.log('🔄 Falling back to local CID generation...');
+    
+    // Provide more specific error information
+    let errorDetails = filebaseError.message;
+    if (filebaseError.code === 'NoSuchBucket') {
+      errorDetails = `Bucket '${process.env.FILEBASE_BUCKET_NAME}' does not exist. Please create it in your Filebase dashboard.`;
+    } else if (filebaseError.code === 'InvalidAccessKeyId') {
+      errorDetails = 'Invalid Filebase Access Key ID. Please check your credentials.';
+    } else if (filebaseError.code === 'SignatureDoesNotMatch') {
+      errorDetails = 'Invalid Filebase Secret Access Key. Please check your credentials.';
+    } else if (filebaseError.message.includes('closing tag') || filebaseError.message.includes('Deserialization error')) {
+      errorDetails = 'Filebase returned an HTML error page. Check your endpoint configuration and credentials.';
+      console.log('🔍 Full error details:', JSON.stringify(filebaseError, null, 2));
+      if (filebaseError.$response) {
+        console.log('🔍 Response details:', {
+          statusCode: filebaseError.$response.statusCode,
+          headers: filebaseError.$response.headers,
+          body: filebaseError.$response.body?.toString?.() || 'No body'
+        });
+      }
+    } else if (filebaseError.$response && filebaseError.$response.body) {
+      console.log('🔍 Raw Filebase response:', filebaseError.$response.body);
+      errorDetails = 'Filebase configuration error. Check logs for raw response.';
+    }
+    
+    console.log('🔧 Debug - Environment check:', {
+      hasAccessKey: !!process.env.FILEBASE_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.FILEBASE_SECRET_ACCESS_KEY,
+      hasBucketName: !!process.env.FILEBASE_BUCKET_NAME,
+      accessKeyStart: process.env.FILEBASE_ACCESS_KEY_ID?.substring(0, 4),
+      bucketName: process.env.FILEBASE_BUCKET_NAME
+    });
+    
+    return {
+      success: true,
+      ipfsCid: localCid,
+      ipfsGatewayUrl: `https://ipfs.io/ipfs/${localCid}`,
+      ipfsGatewayUrls: [
+        `https://ipfs.io/ipfs/${localCid}`,
+        `https://gateway.pinata.cloud/ipfs/${localCid}`,
+        `https://cloudflare-ipfs.com/ipfs/${localCid}`
+      ],
+      timestamp: new Date().toISOString(),
+      note: 'Filebase upload failed - CID generated locally (content may not be available on IPFS network)',
+      warning: 'Content upload to IPFS failed. CID is valid but content may not be retrievable.',
+      error: errorDetails
+    };
   }
 };
 
@@ -122,7 +254,7 @@ const recordOnHedera = async (ipfsCid, metadata) => {
     const transaction = new TopicMessageSubmitTransaction({
       topicId: topicId,
       message: message
-    });
+    }).setTransactionMemo(`${ipfsCid}`);
 
     const txResponse = await transaction.execute(hederaClient);
     const receipt = await txResponse.getReceipt(hederaClient);
@@ -295,10 +427,23 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       ipfsCid: uploadResult.ipfsCid,
       timestamp: new Date().toISOString(),
       ipfsGatewayUrl: uploadResult.ipfsGatewayUrl,
+      ipfsGatewayUrls: uploadResult.ipfsGatewayUrls, // All available gateways
+      filebaseUrl: uploadResult.filebaseUrl, // Filebase storage URL
       message: hederaResult 
-        ? 'Content successfully notarized on Hedera blockchain with IPFS CID'
-        : 'Content successfully processed with IPFS CID (Hedera recording failed)'
+        ? 'Content successfully notarized on Hedera blockchain and uploaded to IPFS'
+        : 'Content successfully uploaded to IPFS (Hedera recording failed)'
     };
+
+    // Include upload status and any warnings
+    if (uploadResult.note) {
+      response.ipfsNote = uploadResult.note;
+    }
+    if (uploadResult.warning) {
+      response.ipfsWarning = uploadResult.warning;
+    }
+    if (uploadResult.error) {
+      response.ipfsError = uploadResult.error;
+    }
 
     if (hederaResult) {
       response.hederaTransactionHash = hederaResult.transactionId;

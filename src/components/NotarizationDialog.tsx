@@ -73,8 +73,14 @@ export default function NotaryUI() {
         cid: result.ipfsCid,
         hash: result.hederaTransactionHash || 'No transaction hash',
         ipfsUrl: result.ipfsGatewayUrl,
+        ipfsUrls: result.ipfsGatewayUrls || [result.ipfsGatewayUrl], // All available gateways
+        filebaseUrl: result.filebaseUrl,
         topicId: result.hederaTopicId,
-        success: result.success
+        success: result.success,
+        ipfsNote: result.ipfsNote,
+        ipfsWarning: result.ipfsWarning,
+        ipfsError: result.ipfsError,
+        hederaError: result.hederaError
       });
       setProgress(100);
       
@@ -210,19 +216,83 @@ export default function NotaryUI() {
                       </p>
                     )}
                     {result.ipfsUrl && (
-                      <p className="text-sm text-gray-700">
-                        <span className="font-semibold">IPFS URL:</span>{' '}
-                        <a 
-                          href={result.ipfsUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline font-mono text-xs break-all"
-                        >
-                          {result.ipfsUrl}
-                        </a>
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-700">
+                          <span className="font-semibold">Primary IPFS Gateway:</span>{' '}
+                          <a 
+                            href={result.ipfsUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline font-mono text-xs break-all"
+                          >
+                            {result.ipfsUrl}
+                          </a>
+                        </p>
+                        
+                        {result.ipfsUrls && result.ipfsUrls.length > 1 && (
+                          <details className="text-sm text-gray-600">
+                            <summary className="cursor-pointer hover:text-gray-800">
+                              Alternative IPFS Gateways ({result.ipfsUrls.length - 1} more)
+                            </summary>
+                            <div className="ml-4 mt-1 space-y-1">
+                              {result.ipfsUrls.slice(1).map((url: string, index: number) => (
+                                <div key={index}>
+                                  <a 
+                                    href={url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-blue-500 hover:underline font-mono text-xs break-all"
+                                  >
+                                    {url}
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                        
+                        {result.filebaseUrl && (
+                          <p className="text-xs text-gray-500">
+                            <span className="font-semibold">Filebase URL:</span>{' '}
+                            <a 
+                              href={result.filebaseUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-gray-600 hover:underline font-mono break-all"
+                            >
+                              {result.filebaseUrl}
+                            </a>
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
+                  
+                  {/* IPFS Status Information */}
+                  {(result.ipfsNote || result.ipfsWarning || result.ipfsError) && (
+                    <div className="mt-3 p-2 rounded-md border">
+                      {result.ipfsNote && (
+                        <p className="text-xs text-green-700 mb-1">
+                          ℹ️ {result.ipfsNote}
+                        </p>
+                      )}
+                      {result.ipfsWarning && (
+                        <p className="text-xs text-yellow-700 mb-1">
+                          ⚠️ {result.ipfsWarning}
+                        </p>
+                      )}
+                      {result.ipfsError && (
+                        <p className="text-xs text-red-700 mb-1">
+                          ❌ IPFS: {result.ipfsError}
+                        </p>
+                      )}
+                      {result.hederaError && (
+                        <p className="text-xs text-red-700">
+                          ❌ Hedera: {result.hederaError}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </motion.div>
