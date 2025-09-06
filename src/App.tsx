@@ -121,37 +121,41 @@ export default function App() {
               Decentralized Content Verification
             </Typography>
           </Box>
-          <Chip
-            label="Testnet"
-            color="warning"
-            size="small"
-            variant="outlined"
-          />
+          <Chip label="Testnet" color="warning" size="small" variant="outlined" />
         </Toolbar>
       </AppBar>
 
       {/* Main content */}
-      <Container sx={{ py: 6 }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
         {connected ? (
           <>
             <Grid container spacing={3}>
               {/* Wallet Connected */}
               <Grid item xs={12} md={6}>
-                <Card sx={{ bgcolor: "success.main", color: "white" }}>
+                <Card sx={{ bgcolor: "success.main", color: "white", height: "100%" }}>
                   <CardContent>
-                    <Box display="flex" justifyContent="space-between">
-                      <Box>
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      flexDirection={{ xs: "column", sm: "row" }}
+                    >
+                      <Box mb={{ xs: 2, sm: 0 }}>
                         <Box display="flex" alignItems="center" mb={1}>
                           <CheckCircleIcon sx={{ mr: 1 }} />
                           <Typography variant="subtitle1">
                             Wallet Connected
                           </Typography>
                         </Box>
-                        <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontFamily: "monospace", wordBreak: "break-word" }}
+                        >
                           {accountId}
                         </Typography>
                       </Box>
-                      <Avatar sx={{ bgcolor: "white", color: "success.main" }}>
+                      <Avatar
+                        sx={{ bgcolor: "white", color: "success.main", alignSelf: "center" }}
+                      >
                         <AccountBalanceWalletIcon />
                       </Avatar>
                     </Box>
@@ -161,19 +165,28 @@ export default function App() {
 
               {/* Balance */}
               <Grid item xs={12} md={6}>
-                <Card sx={{ bgcolor: "primary.main", color: "white" }}>
+                <Card sx={{ bgcolor: "primary.main", color: "white", height: "100%" }}>
                   <CardContent>
-                    <Box display="flex" justifyContent="space-between">
-                      <Box>
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      flexDirection={{ xs: "column", sm: "row" }}
+                    >
+                      <Box mb={{ xs: 2, sm: 0 }}>
                         <Box display="flex" alignItems="center" mb={1}>
                           <CurrencyBitcoinIcon sx={{ mr: 1 }} />
                           <Typography variant="subtitle1">HBAR Balance</Typography>
                         </Box>
-                        <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontFamily: "monospace", wordBreak: "break-word" }}
+                        >
                           {balance ? balance : "Fetching..."}
                         </Typography>
                       </Box>
-                      <Avatar sx={{ bgcolor: "white", color: "primary.main" }}>
+                      <Avatar
+                        sx={{ bgcolor: "white", color: "primary.main", alignSelf: "center" }}
+                      >
                         <CurrencyBitcoinIcon />
                       </Avatar>
                     </Box>
@@ -189,7 +202,7 @@ export default function App() {
             </Box>
           </>
         ) : (
-          <Paper elevation={3} sx={{ p: 6, textAlign: "center" }}>
+          <Paper elevation={3} sx={{ p: { xs: 4, md: 6 }, textAlign: "center" }}>
             <CircularProgress color="warning" />
             <Typography variant="h6" mt={2}>
               Connecting to HashPack Wallet...
@@ -199,8 +212,8 @@ export default function App() {
             </Typography>
 
             <Grid container spacing={4} mt={4}>
-              <Grid item xs={12} md={4}>
-                <SecurityIcon color="primary" sx={{ fontSize: 40 }} />
+              <Grid item xs={12} sm={4} textAlign="center">
+                <SecurityIcon color="primary" sx={{ fontSize: { xs: 30, md: 40 } }} />
                 <Typography variant="subtitle1" fontWeight="bold" mt={1}>
                   Secure & Trusted
                 </Typography>
@@ -209,8 +222,8 @@ export default function App() {
                 </Typography>
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                <FlashOnIcon color="secondary" sx={{ fontSize: 40 }} />
+              <Grid item xs={12} sm={4} textAlign="center">
+                <FlashOnIcon color="secondary" sx={{ fontSize: { xs: 30, md: 40 } }} />
                 <Typography variant="subtitle1" fontWeight="bold" mt={1}>
                   Instant Connection
                 </Typography>
@@ -219,8 +232,8 @@ export default function App() {
                 </Typography>
               </Grid>
 
-              <Grid item xs={12} md={4}>
-                <ScienceIcon color="success" sx={{ fontSize: 40 }} />
+              <Grid item xs={12} sm={4} textAlign="center">
+                <ScienceIcon color="success" sx={{ fontSize: { xs: 30, md: 40 } }} />
                 <Typography variant="subtitle1" fontWeight="bold" mt={1}>
                   Testnet Ready
                 </Typography>
