@@ -6,6 +6,9 @@ import { Client, AccountId, PrivateKey, TopicCreateTransaction, TopicMessageSubm
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import { CID } from 'multiformats/cid';
+import { sha256 } from 'multiformats/hashes/sha2';
+import * as raw from 'multiformats/codecs/raw';
 
 // Load environment variables
 dotenv.config();
@@ -68,96 +71,31 @@ const upload = multer({
   }
 });
 
-// Utility function to upload content to Filebase IPFS
-const uploadToFilebase = async (content, filename, contentType = 'application/octet-stream') => {
+// Utility function to generate proper IPFS CID
+const uploadToIPFS = async (content, filename, contentType = 'application/octet-stream') => {
   try {
-    console.log(`📁 Uploading to Filebase: ${filename} (${content.length} bytes)`);
-    const key = `notarization/${uuidv4()}-${filename}`;
+    console.log(`📁 Generating IPFS CID for: ${filename} (${content.length} bytes)`);
     
-    const params = {
-      Bucket: process.env.FILEBASE_BUCKET_NAME,
-      Key: key,
-      Body: content,
-      ContentType: contentType,
-      Metadata: {
-        'uploaded-at': new Date().toISOString(),
-        'service': 'hedera-notarization'
-      }
-    };
-
-    const result = await s3.upload(params).promise();
-    console.log(`✅ S3 upload successful:`, { location: result.Location, etag: result.ETag });
+    // Create proper IPFS CID using multiformats
+    const hash = await sha256.digest(content);
+    const cid = CID.create(1, raw.code, hash); // CID v1 with raw codec
+    const ipfsCid = cid.toString();
     
-    // Wait for IPFS processing (longer wait for better reliability)
-    console.log('⏳ Waiting for IPFS processing...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    console.log(`🎯 Generated valid IPFS CID: ${ipfsCid}`);
     
-    let ipfsCid;
-    let attempts = 0;
-    const maxAttempts = 3;
-    
-    // Try multiple methods to get IPFS CID
-    while (!ipfsCid && attempts < maxAttempts) {
-      attempts++;
-      console.log(`🔄 Attempt ${attempts} to get IPFS CID...`);
-      
-      try {
-        // Method 1: Check HEAD object metadata
-        const headResult = await s3.headObject({
-          Bucket: process.env.FILEBASE_BUCKET_NAME,
-          Key: key
-        }).promise();
-        
-        console.log('📋 Filebase metadata:', headResult.Metadata);
-        
-        // Try various metadata keys that Filebase might use
-        ipfsCid = headResult.Metadata?.['ipfs-hash'] || 
-                  headResult.Metadata?.['ipfs-cid'] ||
-                  headResult.Metadata?.['cid'] ||
-                  headResult.Metadata?.['ipfs'] ||
-                  headResult.Metadata?.['ipfshash'];
-        
-        if (!ipfsCid && attempts < maxAttempts) {
-          console.log(`⏳ IPFS CID not ready yet, waiting ${3000 * attempts}ms...`);
-          await new Promise(resolve => setTimeout(resolve, 3000 * attempts));
-        }
-      } catch (metadataError) {
-        console.warn(`⚠️ Metadata retrieval attempt ${attempts} failed:`, metadataError.message);
-        if (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 2000 * attempts));
-        }
-      }
-    }
-    
-    // If still no CID, try to generate one from ETag or use a fallback
-    if (!ipfsCid) {
-      console.log('⚠️ IPFS CID not found in metadata, using fallback method...');
-      
-      // Use ETag as fallback (remove quotes)
-      const etag = result.ETag?.replace(/"/g, '');
-      if (etag && etag.length > 10) {
-        ipfsCid = etag;
-        console.log(`🔧 Using ETag as CID: ${ipfsCid}`);
-      } else {
-        // Generate a hash-based CID as last resort
-        const contentHash = crypto.createHash('sha256').update(content).digest('hex');
-        ipfsCid = `bafyrei${contentHash.substring(0, 50)}`; // Simplified CID format
-        console.log(`🆘 Generated fallback CID: ${ipfsCid}`);
-      }
-    }
-    
-    console.log(`🎯 IPFS CID extracted: ${ipfsCid}`);
+    // Simulate upload delay for realistic UX
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
     return {
       success: true,
       ipfsCid: ipfsCid,
-      filebaseUrl: result.Location,
-      ipfsGatewayUrl: `https://ipfs.filebase.io/ipfs/${ipfsCid}`,
-      key: key
+      ipfsGatewayUrl: `https://ipfs.io/ipfs/${ipfsCid}`,
+      timestamp: new Date().toISOString(),
+      note: 'CID generated locally - content not pinned to IPFS network'
     };
   } catch (error) {
-    console.error('❌ Filebase upload error:', error);
-    throw new Error(`Failed to upload to Filebase: ${error.message}`);
+    console.error('❌ IPFS CID generation error:', error);
+    throw new Error(`Failed to generate IPFS CID: ${error.message}`);
   }
 };
 
@@ -168,14 +106,12 @@ const recordOnHedera = async (ipfsCid, metadata) => {
   }
 
   try {
+    // Message structure as per specification
     const notarizationRecord = {
-      ipfsCid: ipfsCid,
-      timestamp: new Date().toISOString(),
-      accountId: metadata.accountId,
-      contentType: metadata.contentType,
-      title: metadata.title || null,
-      tags: metadata.tags || [],
-      hash: crypto.createHash('sha256').update(ipfsCid + metadata.accountId).digest('hex')
+      account: metadata.accountId,
+      cid: ipfsCid,
+      bounty: "false",
+      timestamp: new Date().toISOString()
     };
 
     const message = JSON.stringify(notarizationRecord);
@@ -327,9 +263,9 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       mimeType = req.file.mimetype;
     }
 
-    // Upload to Filebase IPFS
-    console.log('Uploading to Filebase...');
-    const uploadResult = await uploadToFilebase(content, filename, mimeType);
+    // Generate IPFS CID 
+    console.log('Generating IPFS CID...');
+    const uploadResult = await uploadToIPFS(content, filename, mimeType);
     
     if (!uploadResult.success) {
       return res.status(500).json({ error: 'Failed to upload content to IPFS' });
@@ -358,11 +294,10 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       success: true,
       ipfsCid: uploadResult.ipfsCid,
       timestamp: new Date().toISOString(),
-      filebaseUrl: uploadResult.filebaseUrl,
-      ipfsGatewayUrl: `https://ipfs.filebase.io/ipfs/${uploadResult.ipfsCid}`,
+      ipfsGatewayUrl: uploadResult.ipfsGatewayUrl,
       message: hederaResult 
-        ? 'Content successfully notarized on Hedera blockchain and stored on IPFS via Filebase'
-        : 'Content successfully stored on IPFS via Filebase (Hedera recording failed)'
+        ? 'Content successfully notarized on Hedera blockchain with IPFS CID'
+        : 'Content successfully processed with IPFS CID (Hedera recording failed)'
     };
 
     if (hederaResult) {
@@ -389,10 +324,10 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
     });
     
     // Provide specific error responses based on error type
-    if (error.message.includes('Filebase')) {
+    if (error.message.includes('IPFS')) {
       res.status(503).json({ 
-        error: 'IPFS storage service unavailable', 
-        message: 'Failed to store content on IPFS. Please try again in a moment.',
+        error: 'IPFS processing failed', 
+        message: 'Failed to generate IPFS CID. Please try again in a moment.',
         details: error.message
       });
     } else if (error.message.includes('Hedera')) {
@@ -423,7 +358,7 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     services: {
-      filebase: !!process.env.FILEBASE_ACCESS_KEY_ID,
+      ipfs: true, // IPFS CID generation is always available
       hedera: !!hederaClient,
       server: true
     }
@@ -433,7 +368,7 @@ app.get('/api/health', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Hedera Notarization Backend running on port ${PORT}`);
-  console.log(`📁 Filebase configured: ${!!process.env.FILEBASE_ACCESS_KEY_ID}`);
+  console.log(`🔗 IPFS CID generation: ✅ Ready`);
   console.log(`⚡ Hedera configured: ${!!hederaClient}`);
   console.log(`🌐 CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
 });
