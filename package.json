@@ -15,15 +15,23 @@
     "clean": "rm -rf node_modules backend/node_modules package-lock.json backend/package-lock.json"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@hashgraph/hedera-wallet-connect": "^2.0.0-canary.811af2f.0",
     "@hashgraph/sdk": "^2.72.0",
+    "@mui/icons-material": "^7.3.2",
+    "@mui/material": "^7.3.2",
+    "@tailwindcss/postcss": "^4.1.13",
     "@walletconnect/modal": "^2.7.0",
     "buffer": "^6.0.3",
+    "clsx": "^2.1.1",
     "concurrently": "^8.2.2",
     "framer-motion": "^12.23.12",
+    "lucide-react": "^0.542.0",
     "process": "^0.11.10",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

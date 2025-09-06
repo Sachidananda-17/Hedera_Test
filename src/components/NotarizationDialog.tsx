@@ -24,26 +24,68 @@ export default function NotaryUI() {
     setIsSubmitting(true);
     setProgress(0);
 
-    // Fake progress bar
-    let interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 300);
+    try {
+      // Get account ID from parent component
+      const accountId = (window as any).connectedAccountId;
+      if (!accountId) {
+        throw new Error('No wallet connected');
+      }
 
-    // Simulated API call
-    setTimeout(() => {
-      setResult({
-        cid: "Qm12345abcdeFakeCID",
-        hash: "0xFAKEHASH1234567890",
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('accountId', accountId);
+      
+      if (file) {
+        formData.append('contentType', 'image');
+        formData.append('file', file);
+      } else {
+        formData.append('contentType', 'text');
+        formData.append('text', text);
+      }
+
+      // Progress simulation while API call is in progress
+      let interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(interval);
+            return 90;
+          }
+          return prev + 15;
+        });
+      }, 500);
+
+      // Call the real backend API
+      const response = await fetch('http://localhost:3001/api/notarize', {
+        method: 'POST',
+        body: formData,
       });
-      setIsSubmitting(false);
+
+      clearInterval(interval);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to notarize content');
+      }
+
+      const result = await response.json();
+      
+      setResult({
+        cid: result.ipfsCid,
+        hash: result.hederaTransactionHash || 'No transaction hash',
+        ipfsUrl: result.ipfsGatewayUrl,
+        topicId: result.hederaTopicId,
+        success: result.success
+      });
       setProgress(100);
-    }, 4000);
+      
+    } catch (error) {
+      console.error('Notarization error:', error);
+      setResult({
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -80,7 +122,7 @@ export default function NotaryUI() {
             </label>
             <Textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value)}
               placeholder="Enter your text here..."
               className="resize-none focus:ring-2 focus:ring-purple-500"
               rows={4}
@@ -123,21 +165,66 @@ export default function NotaryUI() {
           {/* Results */}
           {result && (
             <motion.div
-              className="mt-6 p-4 rounded-xl bg-green-50 border border-green-200 shadow-md"
+              className={`mt-6 p-4 rounded-xl shadow-md ${
+                result.error 
+                  ? 'bg-red-50 border border-red-200' 
+                  : 'bg-green-50 border border-green-200'
+              }`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <div className="flex items-center gap-2 text-green-700 font-semibold mb-2">
-                <CheckCircle2 className="w-5 h-5" />
-                Notarization Successful
-              </div>
-              <p className="text-sm text-gray-700">
-                <span className="font-semibold">CID:</span> {result.cid}
-              </p>
-              <p className="text-sm text-gray-700">
-                <span className="font-semibold">Hash:</span> {result.hash}
-              </p>
+              {result.error ? (
+                <>
+                  <div className="flex items-center gap-2 text-red-700 font-semibold mb-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Notarization Failed
+                  </div>
+                  <p className="text-sm text-red-700">
+                    {result.error}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-green-700 font-semibold mb-2">
+                    <CheckCircle2 className="w-5 h-5" />
+                    Notarization Successful
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold">IPFS CID:</span>{' '}
+                      <span className="font-mono text-blue-600">{result.cid}</span>
+                    </p>
+                    {result.hash && (
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold">Hedera TX Hash:</span>{' '}
+                        <span className="font-mono text-purple-600">{result.hash}</span>
+                      </p>
+                    )}
+                    {result.topicId && (
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold">HCS Topic ID:</span>{' '}
+                        <span className="font-mono text-green-600">{result.topicId}</span>
+                      </p>
+                    )}
+                    {result.ipfsUrl && (
+                      <p className="text-sm text-gray-700">
+                        <span className="font-semibold">IPFS URL:</span>{' '}
+                        <a 
+                          href={result.ipfsUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline font-mono text-xs break-all"
+                        >
+                          {result.ipfsUrl}
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
         </CardContent>
