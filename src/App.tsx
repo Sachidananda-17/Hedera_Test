@@ -105,7 +105,7 @@ export default function App() {
   }, []);
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "white", width: "100%" }}>
+    <Box sx={{ minHeight: "100vh", bgcolor: "black", width: "100%" }}>
       {/* Header */}
       <AppBar position="static" color="transparent" elevation={1}>
         <Toolbar>
@@ -142,12 +142,12 @@ export default function App() {
                       <Box mb={{ xs: 2, sm: 0 }}>
                         <Box display="flex" alignItems="center" mb={1}>
                           <CheckCircleIcon sx={{ mr: 1 }} />
-                          <Typography variant="subtitle1">
+                          <Typography variant="subtitle1" color="primary">
                             Wallet Connected
                           </Typography>
                         </Box>
                         <Typography
-                          variant="body2"
+                          variant="body2" color="primary"
                           sx={{ fontFamily: "monospace", wordBreak: "break-word" }}
                         >
                           {accountId}
@@ -175,10 +175,10 @@ export default function App() {
                       <Box mb={{ xs: 2, sm: 0 }}>
                         <Box display="flex" alignItems="center" mb={1}>
                           <CurrencyBitcoinIcon sx={{ mr: 1 }} />
-                          <Typography variant="subtitle1">HBAR Balance</Typography>
+                          <Typography variant="subtitle1" color="primary">HBAR Balance</Typography>
                         </Box>
                         <Typography
-                          variant="body2"
+                          variant="body2" color="primary"
                           sx={{ fontFamily: "monospace", wordBreak: "break-word" }}
                         >
                           {balance ? balance : "Fetching..."}
@@ -204,17 +204,17 @@ export default function App() {
         ) : (
           <Paper elevation={3} sx={{ p: { xs: 4, md: 6 }, textAlign: "center" }}>
             <CircularProgress color="warning" />
-            <Typography variant="h6" mt={2}>
+            <Typography variant="h6" mt={2} color="primary">
               Connecting to HashPack Wallet...
             </Typography>
-            <Typography variant="body2" color="text.secondary" mt={1}>
+            <Typography variant="body2" color="text.secondary" mt={1} >
               Please approve the connection in your HashPack extension
             </Typography>
 
             <Grid container spacing={4} mt={4}>
               <Grid item xs={12} sm={4} textAlign="center">
                 <SecurityIcon color="primary" sx={{ fontSize: { xs: 30, md: 40 } }} />
-                <Typography variant="subtitle1" fontWeight="bold" mt={1}>
+                <Typography variant="subtitle1" fontWeight="bold" mt={1} >
                   Secure & Trusted
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
