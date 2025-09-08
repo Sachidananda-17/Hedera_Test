@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Textarea } from "./ui/textarea";
 import { Upload, FileText, CheckCircle2, Loader2 } from "lucide-react";
 
-export default function NotaryUI() {
+export default function NotarizationForm() {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -54,7 +54,7 @@ export default function NotaryUI() {
         });
       }, 500);
 
-      // Call the real backend API
+      // Call the backend API directly
       const response = await fetch('http://localhost:3001/api/notarize', {
         method: 'POST',
         body: formData,
@@ -73,7 +73,7 @@ export default function NotaryUI() {
         cid: result.ipfsCid,
         hash: result.hederaTransactionHash || 'No transaction hash',
         ipfsUrl: result.ipfsGatewayUrl,
-        ipfsUrls: result.ipfsGatewayUrls || [result.ipfsGatewayUrl], // All available gateways
+        ipfsUrls: result.alternativeIPFSUrls || [result.ipfsGatewayUrl], // All available gateways
         filebaseUrl: result.filebaseUrl,
         topicId: result.hederaTopicId,
         success: result.success,

@@ -1,328 +1,365 @@
-# 🚀 Hedera Content Notarization Platform
+# 🚀 Hedera Content Notarization Platform v2.0
 
-A decentralized content notarization system that combines **IPFS storage** via Filebase with **Hedera blockchain** timestamping to create legally-admissible proof of content ownership and existence.
+A comprehensive decentralized content notarization system that combines **IPFS storage**, **Hedera blockchain** timestamping, and **AI-powered claim verification** to create legally-admissible proof of content ownership and existence.
 
 ![License](https://img.shields.io/badge/license-ISC-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-18%2B-green.svg)
 ![React](https://img.shields.io/badge/react-19.1-blue.svg)
 ![Hedera](https://img.shields.io/badge/hedera-testnet-purple.svg)
+![AI](https://img.shields.io/badge/ai-huggingface-yellow.svg)
 
-## 🌟 Features
+## 🌟 What's New in v2.0
 
-### 📱 **Frontend (React + TypeScript)**
-- **Modern UI**: Clean, responsive interface built with TailwindCSS
-- **HashPack Integration**: Seamless Hedera wallet connection
-- **Dual Content Support**: Text and image (JPG/PNG) notarization
-- **Real-time Validation**: Smart form validation and error handling
-- **Success Tracking**: Visual feedback with clickable verification links
+- 🏗️ **Reorganized Architecture**: Clean, scalable monorepo structure
+- 🤖 **Phase 2 AI Integration**: Real-time claim parsing with HuggingFace
+- 📊 **Unified Configuration**: Centralized environment management
+- 🧪 **Comprehensive Testing**: End-to-end test suite
+- 📱 **Improved Frontend**: Better UX and API integration
+- 🔄 **Real-time Processing**: Live monitoring of Hedera transactions
 
-### ⚡ **Backend (Node.js + Express)**
-- **IPFS Storage**: Content uploaded to Filebase for permanent decentralized storage
-- **Blockchain Recording**: Hedera Consensus Service for immutable timestamping
-- **Graceful Degradation**: IPFS works even if Hedera fails
-- **Comprehensive Logging**: Detailed operation tracking for debugging
-- **Security**: CORS protection and file validation
-
-### 🔐 **Cryptographic Guarantees**
-- **Content Integrity**: IPFS CID proves content hasn't been tampered with
-- **Timestamp Proof**: Hedera transaction hash provides legal timestamp evidence
-- **Global Verification**: Anyone worldwide can verify authenticity
-- **Permanent Storage**: Content survives even if original servers go down
-
-## 🏗️ Project Structure
+## 📁 Repository Structure
 
 ```
 Hedera_Test/
-├── 📁 frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   │   └── NotarizationDialog.tsx    # Main notarization UI component
-│   │   ├── App.tsx                       # Main app with wallet integration
-│   │   ├── main.tsx                      # React entry point
-│   │   └── index.css                     # TailwindCSS styles
-│   ├── package.json                      # Frontend dependencies
-│   └── vite.config.ts                    # Vite configuration
-├── 📁 backend/
-│   ├── server.js                         # Express server with all endpoints
-│   ├── package.json                      # Backend dependencies
-│   ├── .env.example                      # Environment template
-│   └── .env                             # Your actual credentials (git-ignored)
-├── README.md                             # This file
-├── .gitignore                           # Git ignore rules
-└── tailwind.config.js                   # TailwindCSS configuration
+├── 📁 apps/
+│   ├── frontend/           # React frontend application
+│   │   ├── src/
+│   │   │   ├── components/  # UI components
+│   │   │   ├── services/    # API services
+│   │   │   └── ...
+│   │   └── [config files]
+│   │
+│   └── backend/            # Express backend API
+│       ├── src/            # Server code
+│       ├── config/         # Configuration files
+│       └── [config files]
+│
+├── 📁 packages/
+│   ├── agents/             # AI Agents & Orchestrators
+│   │   ├── orchestrators/  # Main orchestration logic
+│   │   ├── parsers/        # Claim parsing agents
+│   │   └── core/           # Shared agent functionality
+│   │
+│   ├── config/             # Configuration management
+│   │   └── env/            # Environment configurations
+│   │
+│   └── shared/             # Shared utilities and types
+│       ├── types/          # TypeScript type definitions
+│       └── utils/          # Utility functions
+│
+├── 📁 tests/               # Comprehensive testing
+│   ├── e2e/                # End-to-end tests
+│   ├── integration/        # Integration tests
+│   └── unit/               # Unit tests
+│
+├── 📁 docs/                # Documentation
+├── 📁 scripts/             # Development scripts
+└── [root config files]
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - **Node.js 18+** - [Download here](https://nodejs.org/)
-- **HashPack Wallet** - [Install browser extension](https://hashpack.app/)
+- **HashPack Wallet** - [Install extension](https://hashpack.app/)
 - **Filebase Account** - [Sign up](https://console.filebase.com/) for IPFS storage
 - **Hedera Testnet Account** - Get test HBAR from [faucet](https://portal.hedera.com/faucet)
 
-### Installation
+### 1. Installation
 
-1. **Clone and install dependencies:**
    ```bash
+# Clone the repository
+git clone <your-repo-url>
    cd Hedera_Test
+
+# Install all dependencies
+npm run setup
+
+# Or install manually
    npm install
-   cd backend && npm install
+cd apps/frontend && npm install
+cd ../backend && npm install
    ```
 
-2. **Configure environment variables:**
-   ```bash
-   cd backend
-   cp .env.example .env
-   # Edit .env with your actual credentials
-   ```
+### 2. Configuration
 
-3. **Start both servers:**
    ```bash
-   # Terminal 1 - Backend
-   cd backend && npm start
-   
-   # Terminal 2 - Frontend  
+# Copy environment template
+cp packages/config/env/template.env apps/backend/config/.env
+
+# Edit the .env file with your credentials:
+# - HEDERA_ACCOUNT_ID and HEDERA_PRIVATE_KEY
+# - FILEBASE_ACCESS_KEY_ID and FILEBASE_SECRET_ACCESS_KEY  
+# - FILEBASE_BUCKET_NAME
+# - (Optional) HUGGINGFACE_API_KEY for Phase 2
+```
+
+### 3. Health Check
+
+   ```bash
+# Verify your configuration
+npm run health
+```
+
+### 4. Start the Platform
+
+```bash
+# Development mode (both frontend and backend)
    npm run dev
-   ```
 
-4. **Open the application:**
-   - Frontend: http://localhost:5173
-   - Backend Health: http://localhost:3001/api/health
+# Or start individually
+npm run dev:backend   # Backend only
+npm run dev:frontend  # Frontend only
+```
 
-## ⚙️ Configuration
+### 5. Access the Application
 
-### Backend Environment Variables
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/api/health
+- **Phase 2 Status**: http://localhost:3001/api/phase2/status
 
-```env
-# Filebase Configuration (Required)
-FILEBASE_ACCESS_KEY_ID=your_access_key_here
-FILEBASE_SECRET_ACCESS_KEY=your_secret_key_here
-FILEBASE_BUCKET_NAME=your_bucket_name_here
-FILEBASE_REGION=us-east-1
+## 🎯 How It Works
 
-# Hedera Configuration (Required)
+### Phase 1: Content Notarization
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant Backend
+    participant IPFS
+    participant Hedera
+
+    User->>Frontend: Submit content
+    Frontend->>Backend: POST /api/notarize
+    Backend->>IPFS: Store content via Filebase
+    IPFS-->>Backend: Return CID
+    Backend->>Hedera: Record CID in transaction
+    Hedera-->>Backend: Return transaction hash
+    Backend-->>Frontend: Success response
+    Frontend-->>User: Show verification links
+```
+
+### Phase 2: AI Claim Processing
+
+```mermaid
+sequenceDiagram
+    participant Orchestrator
+    participant Mirror as Hedera Mirror Node
+    participant IPFS
+    participant AI as HuggingFace AI
+    participant Database
+
+    Orchestrator->>Mirror: Poll for new transactions
+    Mirror-->>Orchestrator: New CID found
+    Orchestrator->>IPFS: Fetch content by CID
+    IPFS-->>Orchestrator: Return claim text
+    Orchestrator->>AI: Parse claim structure
+    AI-->>Orchestrator: Return structured data
+    Orchestrator->>Database: Store processed claim
+```
+
+## 📊 Available Scripts
+
+### Development
+
+```bash
+npm run dev              # Start both frontend and backend
+npm run dev:backend      # Start backend only  
+npm run dev:frontend     # Start frontend only
+npm start               # Start backend in production mode
+```
+
+### Testing
+
+```bash
+npm test                # Run full end-to-end test suite
+npm run test:e2e        # End-to-end tests
+npm run test:integration # Integration tests  
+npm run test:unit       # Unit tests
+npm run health          # System health check
+```
+
+### Phase 2 AI System
+
+```bash
+npm run phase2:start    # Start main orchestrator
+npm run phase2:demo     # Run demo orchestrator
+npm run phase2:test     # Test AI claim parsing
+```
+
+### Maintenance
+
+```bash
+npm run setup           # Install all dependencies
+npm run clean           # Clean node_modules and build files
+npm run lint            # Run linters
+npm run format          # Format code with Prettier
+```
+
+## 🔧 Configuration
+
+### Required Environment Variables
+
+```bash
+# Hedera Configuration
 HEDERA_ACCOUNT_ID=0.0.your_account_id
 HEDERA_PRIVATE_KEY=your_private_key_here
-HEDERA_NETWORK=testnet
+
+# IPFS Configuration  
+FILEBASE_ACCESS_KEY_ID=your_filebase_key
+FILEBASE_SECRET_ACCESS_KEY=your_filebase_secret
+FILEBASE_BUCKET_NAME=your_bucket_name
+```
+
+### Optional Configuration
+
+```bash
+# Phase 2 AI Features
+HUGGINGFACE_API_KEY=hf_your_api_key_here
+
+# Auto-start Phase 2
+AUTO_START_PHASE2=false
 
 # Server Configuration
 PORT=3001
 CORS_ORIGIN=http://localhost:5173
-IPFS_GATEWAY_URL=https://ipfs.filebase.io/ipfs/
 ```
 
-### Getting Your Credentials
+See `packages/config/env/template.env` for complete configuration options.
 
-#### **Filebase Setup:**
-1. Create account at [console.filebase.com](https://console.filebase.com)
-2. Create a bucket (choose IPFS network)
-3. Generate Access Keys from dashboard
-4. Copy Access Key ID and Secret Access Key
+## 🧪 Testing
 
-#### **Hedera Setup:**
-1. Install HashPack browser extension
-2. Create/import account and switch to Testnet
-3. Get test HBAR from [Hedera faucet](https://portal.hedera.com/faucet)
-4. Export private key from HashPack settings
-
-## 🧪 Usage
-
-### **Step 1: Connect Wallet**
-- Open http://localhost:5173
-- Connect your HashPack wallet (ensure it's on Testnet)
-- Verify account ID and HBAR balance appear
-
-### **Step 2: Notarize Content**
-
-**For Text Content:**
-1. Enter text in the content area
-2. Add optional title and tags
-3. Click "📝 Notarize Content"
-
-**For Images:**
-1. Upload JPG/PNG file (up to 10MB)
-2. Add optional title and tags  
-3. Click "📝 Notarize Content"
-
-### **Step 3: Verify Results**
-- **IPFS Link**: Click to view your content on IPFS gateway
-- **Hedera Link**: Click to view blockchain transaction on HashScan
-- **Save both links** as proof of ownership and timestamp!
-
-## 📊 API Endpoints
-
-### **POST /api/notarize**
-Notarize content on blockchain and store on IPFS.
-
-**Request (Text):**
-```json
-{
-  "accountId": "0.0.1234567",
-  "contentType": "text",
-  "text": "Content to notarize",
-  "title": "Optional title",
-  "tags": "comma,separated,tags"
-}
-```
-
-**Request (Image):**
-- Use `multipart/form-data`
-- Include `file` field with image
-- Same other fields as text
-
-**Response:**
-```json
-{
-  "success": true,
-  "ipfsCid": "QmXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-  "timestamp": "2025-01-05T22:43:24.699Z",
-  "hederaTransactionHash": "0.0.1234567@1757111002.767860785",
-  "ipfsGatewayUrl": "https://ipfs.filebase.io/ipfs/QmXXXXXXXX...",
-  "message": "Content successfully notarized!"
-}
-```
-
-### **GET /api/health**
-Check server and service status.
-
-### **GET /api/ipfs/:cid**
-Get IPFS gateway URLs for a CID.
-
-## 🛡️ Legal Use Cases
-
-### **📄 Copyright Protection**
-- Upload manuscripts, artwork, code
-- Get blockchain timestamp proof of creation
-- Use in court as evidence of prior ownership
-
-### **⚖️ Patent Prior Art**
-- Document inventions with detailed descriptions  
-- Establish invention date on blockchain
-- Defend against patent trolls
-
-### **📋 Contract Verification**
-- Notarize signed agreements and contracts
-- Prove terms existed at specific time
-- Immutable record of business deals
-
-### **🎓 Academic Integrity**
-- Timestamp research data and results
-- Prevent accusations of data manipulation
-- Establish publication priority
-
-### **🏢 Business Documentation**
-- Meeting minutes, strategic plans
-- Audit trail for compliance
-- Intellectual property protection
-
-## 🎯 How It Works
-
-1. **Content Upload** → Your content goes to IPFS via Filebase
-2. **CID Generation** → Unique content identifier created (tamper-proof)
-3. **Blockchain Recording** → Transaction recorded on Hedera with timestamp
-4. **Proof Generation** → You get both IPFS link and blockchain hash
-5. **Global Verification** → Anyone can verify authenticity using the links
-
-## 🔧 Development
-
-### **Available Scripts**
+### System Health Check
 
 ```bash
-# Frontend
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview      # Preview production build
-
-# Backend  
-npm start           # Start production server
-npm run dev         # Start with nodemon (auto-reload)
-
-# Combined
-npm run dev:all     # Start both frontend and backend
+npm run health
 ```
 
-### **Tech Stack**
+This comprehensive check verifies:
+- ✅ Configuration validity
+- ✅ Backend service connectivity  
+- ✅ Phase 2 AI system status
+- ✅ External dependencies (Hedera, IPFS, HuggingFace)
+- ✅ File system permissions
 
-**Frontend:**
-- React 19 + TypeScript
-- Vite (build tool)
-- TailwindCSS (styling)
-- Hedera Wallet Connect
-- HashPack integration
+### End-to-End Testing
 
-**Backend:**
-- Node.js + Express
-- AWS SDK (Filebase S3-compatible)
-- Hedera SDK
-- Multer (file uploads)
-
-## 🐛 Troubleshooting
-
-### **Common Issues**
-
-**Wallet Connection Fails:**
-- Ensure HashPack extension is installed
-- Switch HashPack to Testnet mode  
-- Check browser console for errors
-
-**Filebase Upload Fails:**
-- Verify credentials in `.env`
-- Check bucket exists and is IPFS-enabled
-- Ensure sufficient Filebase storage
-
-**Hedera Transaction Fails:**
-- Verify account has test HBAR tokens
-- Check private key format (with or without 0x)
-- Ensure account ID is correct
-
-**IPFS Gateway Shows Error:**
-- Content may still be processing (wait 1-2 minutes)
-- Try alternative gateway: `https://ipfs.io/ipfs/[CID]`
-- Verify CID is valid
-
-### **Debug Mode**
-
-Enable detailed logging by checking backend terminal output:
+```bash
+npm run test:e2e
 ```
-📁 Uploading to Filebase: filename (size)
-✅ S3 upload successful
-🎯 IPFS CID extracted: QmXXXX...
-🌐 IPFS Gateway URL: https://...
-```
+
+Complete flow testing:
+1. **Service Startup**: Starts backend and frontend
+2. **Content Notarization**: Tests full notarization workflow
+3. **IPFS Verification**: Confirms content accessibility
+4. **Phase 2 Processing**: Tests AI claim parsing (if enabled)
+5. **Cleanup**: Stops test services
+
+## 🔍 API Documentation
+
+### Core Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/notarize` | Submit content for notarization |
+| `GET` | `/api/health` | System health status |
+| `GET` | `/api/ipfs/:cid` | IPFS gateway URLs for CID |
+
+### Phase 2 Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/phase2/status` | Phase 2 orchestrator status |
+| `POST` | `/api/phase2/start` | Start real-time processing |
+| `POST` | `/api/phase2/stop` | Stop processing |
+| `GET` | `/api/phase2/claims` | List all processed claims |
+| `GET` | `/api/phase2/claims/:cid` | Get specific claim by CID |
+
+## 🛡️ Production Deployment
+
+### Environment Setup
+
+1. **Production Environment Variables**:
+   ```bash
+   NODE_ENV=production
+   PORT=3001
+   AUTO_START_PHASE2=true
+   ```
+
+2. **Build Frontend**:
+   ```bash
+   npm run build:frontend
+   ```
+
+3. **Start Backend**:
+   ```bash
+   npm run start
+   ```
+
+### Security Considerations
+
+- Store private keys securely (use environment variables)
+- Enable HTTPS in production
+- Configure proper CORS origins
+- Use rate limiting for API endpoints
+- Monitor log files for security issues
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create feature branch: `git checkout -b feature-name`
-3. Make changes and test thoroughly
-4. Commit: `git commit -m 'Add feature'`
-5. Push: `git push origin feature-name`  
-6. Submit pull request
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make changes and test: `npm test`
+4. Commit changes: `git commit -m 'Add feature'`
+5. Push to branch: `git push origin feature-name`
+6. Submit a pull request
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**Configuration Errors**:
+```bash
+npm run health  # Check configuration
+```
+
+**Phase 2 Not Working**:
+- Ensure `HUGGINGFACE_API_KEY` is set
+- Check Phase 2 status: `curl http://localhost:3001/api/phase2/status`
+
+**IPFS Content Not Accessible**:
+- Verify Filebase credentials
+- Check bucket configuration
+- Try alternative gateways
+
+**Frontend Connection Issues**:
+- Ensure backend is running on correct port
+- Check CORS configuration
+- Verify HashPack wallet connection
+
+### Debug Mode
+
+Enable detailed logging:
+```bash
+LOG_LEVEL=DEBUG
+ENABLE_DETAILED_LOGS=true
+```
 
 ## 📄 License
 
 This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## 🙏 Acknowledgments
 
-### **Getting Help**
-- Check the troubleshooting section above
-- Review browser and server console logs  
-- Ensure all prerequisites are properly configured
-- Test with simple content first
-
-### **Resources**
-- [Hedera Documentation](https://docs.hedera.com/)
-- [Filebase Documentation](https://docs.filebase.com/)
-- [HashPack Wallet Guide](https://hashpack.app/)
-- [IPFS Documentation](https://docs.ipfs.io/)
+- [Hedera Hashgraph](https://hedera.com/) for blockchain infrastructure
+- [Filebase](https://filebase.com/) for IPFS storage
+- [HuggingFace](https://huggingface.co/) for AI models
+- [HashPack](https://hashpack.app/) for wallet integration
 
 ---
 
-## 🎉 **Create Unbreakable Digital Proof with Blockchain + IPFS!**
+## 🎉 **Ready to Create Unbreakable Digital Proof!** 🛡️
 
-**Your content. Your timestamp. Your proof. Forever.** 🛡️
-
----
-
-*Built with ❤️ for the decentralized future*
+**Your content. Your timestamp. Your proof. Forever.**

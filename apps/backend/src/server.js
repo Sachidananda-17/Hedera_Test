@@ -3,32 +3,44 @@ import cors from 'cors';
 import multer from 'multer';
 import { S3Client, PutObjectCommand, HeadObjectCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { Client, AccountId, PrivateKey, TopicCreateTransaction, TopicMessageSubmitTransaction, Hbar } from '@hashgraph/sdk';
-import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { CID } from 'multiformats/cid';
 import { sha256 } from 'multiformats/hashes/sha2';
 import * as raw from 'multiformats/codecs/raw';
 
-// Load environment variables
-dotenv.config();
+// Import unified configuration
+import { config, validateConfig, getConfigSummary } from '../../../packages/config/env/config.js';
+
+// Import main orchestrator (renamed from production-orchestrator)
+import MainOrchestrator from '../../../packages/agents/orchestrators/main-orchestrator.js';
+
+// Validate configuration before starting
+try {
+  validateConfig();
+  console.log('🎯 Configuration Summary:', getConfigSummary());
+} catch (error) {
+  console.error('❌ Configuration validation failed:', error.message);
+  process.exit(1);
+}
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = config.server.port;
 
 // Initialize Hedera client
 let hederaClient = null;
 try {
   hederaClient = Client.forTestnet();
   
-  // Set operator from environment variables
-  if (process.env.HEDERA_ACCOUNT_ID && process.env.HEDERA_PRIVATE_KEY) {
+  // Set operator from configuration
+  if (config.hedera.accountId && config.hedera.privateKey) {
     hederaClient.setOperator(
-      AccountId.fromString(process.env.HEDERA_ACCOUNT_ID),
-      PrivateKey.fromStringECDSA(process.env.HEDERA_PRIVATE_KEY)
+      AccountId.fromString(config.hedera.accountId),
+      PrivateKey.fromStringECDSA(config.hedera.privateKey)
     );
+    console.log(`✅ Hedera client configured for account: ${config.hedera.accountId}`);
   } else {
-    console.warn('⚠️ Hedera credentials not found in environment variables');
+    console.warn('⚠️ Hedera credentials not found in configuration');
     hederaClient = null;
   }
 } catch (error) {
@@ -38,7 +50,7 @@ try {
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173'
+  origin: config.server.corsOrigin
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -49,13 +61,13 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
-// Configure AWS S3 client for Filebase
+// Configure AWS S3 client for Filebase using configuration
 const s3Client = new S3Client({
-  endpoint: 'https://s3.filebase.com',
-  region: process.env.FILEBASE_REGION || 'us-east-1',
+  endpoint: config.filebase.endpoint,
+  region: config.filebase.region,
   credentials: {
-    accessKeyId: process.env.FILEBASE_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.FILEBASE_SECRET_ACCESS_KEY || '',
+    accessKeyId: config.filebase.accessKeyId,
+    secretAccessKey: config.filebase.secretAccessKey,
   },
 });
 
@@ -444,10 +456,162 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
   }
 });
 
+// Phase 2 Main Orchestrator Integration
+let phase2Orchestrator = null;
+
+// Initialize Phase 2 orchestrator if enabled
+if (config.features.phase2Enabled) {
+  try {
+    phase2Orchestrator = new MainOrchestrator();
+    console.log('🤖 Phase 2 Main Orchestrator initialized');
+    
+    // Auto-start if enabled
+    if (config.agents.autoStartPhase2) {
+      phase2Orchestrator.startRealTimeProcessing()
+        .then(() => {
+          console.log('✅ Phase 2 auto-started - monitoring Hedera for new claims');
+        })
+        .catch(error => {
+          console.error('❌ Phase 2 auto-start failed:', error.message);
+        });
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize Phase 2 orchestrator:', error.message);
+  }
+} else {
+  console.log('⚠️ Phase 2 not initialized - HuggingFace API key not configured');
+}
+
+// Phase 2 API Endpoints
+
+// Get Phase 2 status
+app.get('/api/phase2/status', (req, res) => {
+  if (!phase2Orchestrator) {
+    return res.json({
+      success: false,
+      message: 'Phase 2 orchestrator not initialized',
+      status: 'not_available'
+    });
+  }
+
+  const status = phase2Orchestrator.getApiStatus();
+  const stats = phase2Orchestrator.getProductionStats();
+
+  res.json({
+    success: true,
+    phase2: {
+      ...status,
+      stats
+    }
+  });
+});
+
+// Start Phase 2 orchestrator
+app.post('/api/phase2/start', async (req, res) => {
+  if (!phase2Orchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phase 2 orchestrator not initialized'
+    });
+  }
+
+  if (phase2Orchestrator.isRunning) {
+    return res.json({
+      success: true,
+      message: 'Phase 2 orchestrator already running'
+    });
+  }
+
+  try {
+    await phase2Orchestrator.startRealTimeProcessing();
+    res.json({
+      success: true,
+      message: 'Phase 2 orchestrator started successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Stop Phase 2 orchestrator
+app.post('/api/phase2/stop', (req, res) => {
+  if (!phase2Orchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phase 2 orchestrator not initialized'
+    });
+  }
+
+  phase2Orchestrator.stop();
+  res.json({
+    success: true,
+    message: 'Phase 2 orchestrator stopped'
+  });
+});
+
+// Get processed claims
+app.get('/api/phase2/claims', (req, res) => {
+  if (!phase2Orchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phase 2 orchestrator not initialized'
+    });
+  }
+
+  const claims = phase2Orchestrator.getAllProcessedClaims();
+  res.json({
+    success: true,
+    claims,
+    total: claims.length
+  });
+});
+
+// Get specific claim by CID
+app.get('/api/phase2/claims/:cid', (req, res) => {
+  if (!phase2Orchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Phase 2 orchestrator not initialized'
+    });
+  }
+
+  const { cid } = req.params;
+  const claim = phase2Orchestrator.getClaim(cid);
+  
+  if (!claim) {
+    return res.status(404).json({
+      success: false,
+      message: `Claim with CID ${cid} not found`
+    });
+  }
+
+  res.json({
+    success: true,
+    claim
+  });
+});
+
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Hedera Notarization Backend running on port ${PORT}`);
-  console.log(`🔗 IPFS CID generation: ✅ Ready`);
-  console.log(`⚡ Hedera configured: ${!!hederaClient}`);
-  console.log(`🌐 CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+  console.log('\n🚀 HEDERA CONTENT NOTARIZATION PLATFORM');
+  console.log('='.repeat(50));
+  console.log(`📡 Server running on: http://localhost:${PORT}`);
+  console.log(`🔗 IPFS integration: ✅ Ready`);
+  console.log(`⚡ Hedera network: ${config.hedera.network} (${!!hederaClient ? 'Connected' : 'Disconnected'})`);
+  console.log(`🤖 Phase 2 AI: ${!!phase2Orchestrator ? 'Available' : 'Disabled'}`);
+  console.log(`🔄 Auto-processing: ${config.agents.autoStartPhase2 ? 'Enabled' : 'Manual'}`);
+  console.log(`🌐 CORS origin: ${config.server.corsOrigin}`);
+  console.log(`🏗️ Environment: ${config.server.nodeEnv}`);
+  
+  if (phase2Orchestrator && !config.agents.autoStartPhase2) {
+    console.log('\n💡 Phase 2 Manual Controls:');
+    console.log(`   Start: POST http://localhost:${PORT}/api/phase2/start`);
+    console.log(`   Status: GET http://localhost:${PORT}/api/phase2/status`);
+    console.log(`   Claims: GET http://localhost:${PORT}/api/phase2/claims`);
+  }
+  
+  console.log('\n✅ Ready to accept notarization requests!');
 });
