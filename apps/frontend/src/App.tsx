@@ -11,7 +11,7 @@ import {
   AccountBalanceQuery,
   AccountId,
 } from "@hashgraph/sdk";
-import NotarizationDialog from "./components/NotarizationDialog";
+import NotarizationForm from "./components/NotarizationForm";
 
 // MUI components
 import {
@@ -198,7 +198,7 @@ export default function App() {
             {/* Notarization dialog */}
             <Box mt={6}>
               {(window as any).connectedAccountId = accountId}
-              <NotarizationDialog />
+              <NotarizationForm />
             </Box>
           </>
         ) : (

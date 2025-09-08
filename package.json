@@ -1,53 +1,65 @@
 {
-  "name": "hash-pack-test",
-  "private": true,
-  "version": "0.0.0",
+  "name": "hedera-content-notarization-platform",
+  "version": "2.0.0",
+  "description": "Decentralized content notarization system combining IPFS storage with Hedera blockchain timestamping and AI-powered claim verification",
   "type": "module",
+  "workspaces": [
+    "apps/frontend",
+    "apps/backend", 
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "backend": "cd backend && npm run dev",
-    "start:backend": "cd backend && npm start",
-    "dev:all": "concurrently \"npm run backend\" \"npm run dev\"",
-    "setup": "npm install && cd backend && npm install",
-    "clean": "rm -rf node_modules backend/node_modules package-lock.json backend/package-lock.json"
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd apps/backend && npm run dev",
+    "dev:frontend": "cd apps/frontend && npm run dev", 
+    "start": "npm run start:backend",
+    "start:backend": "cd apps/backend && npm start",
+    "start:frontend": "cd apps/frontend && npm run preview",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd apps/frontend && npm run build",
+    "build:backend": "echo 'Backend build not required for Node.js'",
+    "test": "npm run test:e2e",
+    "test:agents": "node packages/agents/core/test-phase2.js", 
+    "test:e2e": "node tests/e2e/complete-flow-test.js",
+    "phase2:start": "node packages/agents/orchestrators/main-orchestrator.js",
+    "phase2:demo": "node packages/agents/orchestrators/demo-orchestrator.js",
+    "phase2:test": "node packages/agents/core/test-phase2.js",
+    "setup": "npm install && cd apps/frontend && npm install && cd ../backend && npm install",
+    "clean": "npm run clean:deps && npm run clean:build",
+    "clean:deps": "rmdir /s /q node_modules && rmdir /s /q apps\\frontend\\node_modules && rmdir /s /q apps\\backend\\node_modules",
+    "clean:build": "rmdir /s /q apps\\frontend\\dist",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd apps/frontend && npm run lint",
+    "lint:backend": "echo 'Backend linting not configured'",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
+    "docs": "echo 'Documentation generation not configured'",
+    "health": "node scripts/dev/health-check.js"
   },
   "dependencies": {
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@hashgraph/hedera-wallet-connect": "^2.0.0-canary.811af2f.0",
-    "@hashgraph/sdk": "^2.72.0",
-    "@mui/icons-material": "^7.3.2",
-    "@mui/material": "^7.3.2",
-    "@tailwindcss/postcss": "^4.1.13",
-    "@walletconnect/modal": "^2.7.0",
-    "buffer": "^6.0.3",
-    "clsx": "^2.1.1",
-    "concurrently": "^8.2.2",
-    "framer-motion": "^12.23.12",
-    "lucide-react": "^0.542.0",
-    "process": "^0.11.10",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "tailwind-merge": "^3.3.1"
+    "concurrently": "^8.2.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.33.0",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
-    "@vitejs/plugin-react": "^5.0.0",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9.33.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^16.3.0",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.13",
-    "typescript": "~5.8.3",
-    "typescript-eslint": "^8.39.1",
-    "vite": "^7.1.2",
-    "vite-plugin-node-polyfills": "^0.24.0"
-  }
+    "prettier": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/hedera-content-notarization"
+  },
+  "keywords": [
+    "hedera",
+    "blockchain", 
+    "ipfs",
+    "notarization",
+    "ai",
+    "claim-verification",
+    "decentralized",
+    "content-protection"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
+  "private": false
 }
