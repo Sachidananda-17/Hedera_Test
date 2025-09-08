@@ -5,56 +5,73 @@ A comprehensive decentralized content notarization system that combines **IPFS s
 ![License](https://img.shields.io/badge/license-ISC-blue.svg)
 ![Node.js](https://img.shields.io/badge/node.js-18%2B-green.svg)
 ![React](https://img.shields.io/badge/react-19.1-blue.svg)
+![TypeScript](https://img.shields.io/badge/typescript-5.8-blue.svg)
 ![Hedera](https://img.shields.io/badge/hedera-testnet-purple.svg)
 ![AI](https://img.shields.io/badge/ai-huggingface-yellow.svg)
+![IPFS](https://img.shields.io/badge/ipfs-filebase-orange.svg)
 
 ## 🌟 What's New in v2.0
 
-- 🏗️ **Reorganized Architecture**: Clean, scalable monorepo structure
-- 🤖 **Phase 2 AI Integration**: Real-time claim parsing with HuggingFace
-- 📊 **Unified Configuration**: Centralized environment management
-- 🧪 **Comprehensive Testing**: End-to-end test suite
-- 📱 **Improved Frontend**: Better UX and API integration
-- 🔄 **Real-time Processing**: Live monitoring of Hedera transactions
+- 🏗️ **Monorepo Architecture**: Clean workspace-based structure with `apps/` and `packages/`
+- 🤖 **Advanced AI Orchestrators**: Multiple AI agents for real-time claim processing
+- 🔧 **Unified Configuration**: Centralized environment management with validation
+- 🧪 **Comprehensive Health Checks**: System-wide diagnostics and monitoring
+- 📱 **Modern Frontend**: React 19 + TypeScript + Material-UI + TailwindCSS
+- 🔄 **Real-time Processing**: Live monitoring of Hedera Mirror Node
+- 📊 **Enhanced API**: RESTful backend with proper error handling and CORS
+- 🛡️ **Security-First**: Proper secret management and environment validation
 
 ## 📁 Repository Structure
 
 ```
 Hedera_Test/
-├── 📁 apps/
-│   ├── frontend/           # React frontend application
+├── 📁 apps/                      # Application layer
+│   ├── frontend/                 # React + TypeScript frontend
 │   │   ├── src/
-│   │   │   ├── components/  # UI components
-│   │   │   ├── services/    # API services
-│   │   │   └── ...
-│   │   └── [config files]
+│   │   │   ├── components/       # UI components (NotarizationForm, UI kit)
+│   │   │   ├── services/         # API service layer
+│   │   │   └── lib/             # Utility functions
+│   │   ├── vite.config.ts       # Vite configuration
+│   │   └── tailwind.config.js   # TailwindCSS config
 │   │
-│   └── backend/            # Express backend API
-│       ├── src/            # Server code
-│       ├── config/         # Configuration files
-│       └── [config files]
+│   └── backend/                 # Express.js API server
+│       ├── src/
+│       │   └── server.js        # Main server with all endpoints
+│       ├── config/              # Backend-specific configuration
+│       └── package.json         # Backend dependencies
 │
-├── 📁 packages/
-│   ├── agents/             # AI Agents & Orchestrators
-│   │   ├── orchestrators/  # Main orchestration logic
-│   │   ├── parsers/        # Claim parsing agents
-│   │   └── core/           # Shared agent functionality
+├── 📁 packages/                 # Shared packages
+│   ├── agents/                  # AI Agent System
+│   │   ├── orchestrators/       # Main processing engines
+│   │   │   ├── main-orchestrator.js      # Production orchestrator
+│   │   │   ├── demo-orchestrator.js      # Demo/testing orchestrator  
+│   │   │   └── legacy-orchestrator.js    # Legacy compatibility
+│   │   ├── parsers/             # Claim parsing agents
+│   │   │   └── claim-parser.js  # HuggingFace integration
+│   │   └── core/                # Core agent functionality
+│   │       ├── test-phase2.js   # Phase 2 testing
+│   │       └── fluence-config.js # Future Fluence integration
 │   │
-│   ├── config/             # Configuration management
-│   │   └── env/            # Environment configurations
+│   ├── config/                  # Configuration management
+│   │   └── env/
+│   │       ├── config.js        # Unified config loader & validator
+│   │       └── template.env     # Environment template
 │   │
-│   └── shared/             # Shared utilities and types
-│       ├── types/          # TypeScript type definitions
-│       └── utils/          # Utility functions
+│   └── shared/                  # Shared utilities
+│       └── types/
+│           └── index.ts         # TypeScript definitions
 │
-├── 📁 tests/               # Comprehensive testing
-│   ├── e2e/                # End-to-end tests
-│   ├── integration/        # Integration tests
-│   └── unit/               # Unit tests
+├── 📁 tests/                    # Testing suite
+│   └── e2e/
+│       └── complete-flow-test.js # End-to-end integration tests
 │
-├── 📁 docs/                # Documentation
-├── 📁 scripts/             # Development scripts
-└── [root config files]
+├── 📁 scripts/                  # Development utilities
+│   └── dev/
+│       └── health-check.js      # Comprehensive system health checker
+│
+├── 📄 IPFS_SETUP.md             # IPFS configuration guide
+├── 📄 QUICK_START_TESTING.md    # Quick testing instructions
+└── 📄 package.json              # Root workspace configuration
 ```
 
 ## 🚀 Quick Start
@@ -68,49 +85,65 @@ Hedera_Test/
 
 ### 1. Installation
 
-   ```bash
+```bash
 # Clone the repository
-git clone <your-repo-url>
-   cd Hedera_Test
+git clone https://github.com/Sachidananda-17/Hedera_Test.git
+cd Hedera_Test
 
-# Install all dependencies
+# Install all dependencies (uses workspaces)
 npm run setup
 
-# Or install manually
-   npm install
+# Alternative manual installation
+npm install
 cd apps/frontend && npm install
 cd ../backend && npm install
-   ```
+```
 
 ### 2. Configuration
 
-   ```bash
-# Copy environment template
-cp packages/config/env/template.env apps/backend/config/.env
+```bash
+# Copy environment template to backend config
+copy packages\config\env\template.env apps\backend\config\.env
 
-# Edit the .env file with your credentials:
-# - HEDERA_ACCOUNT_ID and HEDERA_PRIVATE_KEY
-# - FILEBASE_ACCESS_KEY_ID and FILEBASE_SECRET_ACCESS_KEY  
-# - FILEBASE_BUCKET_NAME
-# - (Optional) HUGGINGFACE_API_KEY for Phase 2
+# Edit apps/backend/config/.env with your credentials:
+# Required:
+HEDERA_ACCOUNT_ID=0.0.your_account_id
+HEDERA_PRIVATE_KEY=your_private_key_here
+FILEBASE_ACCESS_KEY_ID=your_filebase_access_key
+FILEBASE_SECRET_ACCESS_KEY=your_filebase_secret_key
+FILEBASE_BUCKET_NAME=your_bucket_name
+
+# Optional (for Phase 2 AI features):
+HUGGINGFACE_API_KEY=hf_your_api_key_here
 ```
 
 ### 3. Health Check
 
-   ```bash
-# Verify your configuration
+```bash
+# Verify your complete system setup
 npm run health
 ```
+
+This comprehensive check validates:
+- ✅ Configuration files and credentials
+- ✅ Backend service connectivity  
+- ✅ Phase 2 AI system status
+- ✅ External dependencies (Hedera, IPFS, HuggingFace)
+- ✅ Network connectivity and permissions
 
 ### 4. Start the Platform
 
 ```bash
 # Development mode (both frontend and backend)
-   npm run dev
+npm run dev
 
 # Or start individually
-npm run dev:backend   # Backend only
-npm run dev:frontend  # Frontend only
+npm run dev:backend    # Backend only (port 3001)
+npm run dev:frontend   # Frontend only (port 5173)
+
+# Production mode
+npm run start         # Backend in production mode
+npm run build         # Build frontend for production
 ```
 
 ### 5. Access the Application
@@ -122,113 +155,159 @@ npm run dev:frontend  # Frontend only
 
 ## 🎯 How It Works
 
-### Phase 1: Content Notarization
+### Phase 1: Content Notarization Flow
 
 ```mermaid
 sequenceDiagram
     participant User
     participant Frontend
     participant Backend
-    participant IPFS
+    participant IPFS as Filebase IPFS
     participant Hedera
 
-    User->>Frontend: Submit content
+    User->>Frontend: Upload content
     Frontend->>Backend: POST /api/notarize
-    Backend->>IPFS: Store content via Filebase
-    IPFS-->>Backend: Return CID
+    Backend->>Backend: Generate IPFS CID
+    Backend->>IPFS: Upload to Filebase S3-IPFS
+    IPFS-->>Backend: Confirm storage
     Backend->>Hedera: Record CID in transaction
     Hedera-->>Backend: Return transaction hash
-    Backend-->>Frontend: Success response
+    Backend-->>Frontend: Success with CID & hash
     Frontend-->>User: Show verification links
 ```
 
-### Phase 2: AI Claim Processing
+### Phase 2: AI Claim Processing Flow
 
 ```mermaid
 sequenceDiagram
     participant Orchestrator
     participant Mirror as Hedera Mirror Node
-    participant IPFS
+    participant IPFS as IPFS Network
     participant AI as HuggingFace AI
-    participant Database
+    participant Storage as Local Storage
 
     Orchestrator->>Mirror: Poll for new transactions
-    Mirror-->>Orchestrator: New CID found
+    Mirror-->>Orchestrator: Return transaction data
+    Orchestrator->>Orchestrator: Extract CID from memo
     Orchestrator->>IPFS: Fetch content by CID
     IPFS-->>Orchestrator: Return claim text
     Orchestrator->>AI: Parse claim structure
     AI-->>Orchestrator: Return structured data
-    Orchestrator->>Database: Store processed claim
+    Orchestrator->>Storage: Store processed claim
+    Orchestrator->>Orchestrator: Continue monitoring
 ```
 
 ## 📊 Available Scripts
 
-### Development
+### Development & Deployment
 
 ```bash
-npm run dev              # Start both frontend and backend
-npm run dev:backend      # Start backend only  
-npm run dev:frontend     # Start frontend only
-npm start               # Start backend in production mode
+# Development
+npm run dev                 # Start both frontend and backend
+npm run dev:backend        # Start backend only
+npm run dev:frontend       # Start frontend only  
+npm run start             # Production backend
+npm run start:frontend    # Production frontend preview
+
+# Building
+npm run build             # Build both applications
+npm run build:frontend    # Build React app for production
+npm run build:backend     # Backend build (Node.js, no build needed)
 ```
 
-### Testing
+### Testing & Health
 
 ```bash
-npm test                # Run full end-to-end test suite
-npm run test:e2e        # End-to-end tests
-npm run test:integration # Integration tests  
-npm run test:unit       # Unit tests
-npm run health          # System health check
+# Comprehensive system testing
+npm run test              # Full end-to-end test suite
+npm run test:e2e          # End-to-end integration tests
+npm run test:agents       # Test AI agent functionality
+npm run health            # Complete system health check
 ```
 
-### Phase 2 AI System
+### Phase 2 AI Operations
 
 ```bash
-npm run phase2:start    # Start main orchestrator
-npm run phase2:demo     # Run demo orchestrator
-npm run phase2:test     # Test AI claim parsing
+# AI Orchestrator operations
+npm run phase2:start      # Start production orchestrator
+npm run phase2:demo       # Run demo orchestrator
+npm run phase2:test       # Test AI claim parsing functionality
 ```
 
-### Maintenance
+### Maintenance & Development
 
 ```bash
-npm run setup           # Install all dependencies
-npm run clean           # Clean node_modules and build files
-npm run lint            # Run linters
-npm run format          # Format code with Prettier
+# Setup and cleanup
+npm run setup             # Install all workspace dependencies
+npm run clean             # Remove all node_modules and build files
+npm run clean:deps        # Remove dependencies only
+npm run clean:build       # Remove build artifacts only
+
+# Code quality
+npm run lint              # Run all linters
+npm run lint:frontend     # Frontend ESLint
+npm run format            # Prettier code formatting
 ```
 
 ## 🔧 Configuration
 
 ### Required Environment Variables
 
+The system uses a unified configuration system. All settings go in `apps/backend/config/.env`:
+
 ```bash
-# Hedera Configuration
+# Hedera Blockchain Configuration
 HEDERA_ACCOUNT_ID=0.0.your_account_id
 HEDERA_PRIVATE_KEY=your_private_key_here
+HEDERA_NETWORK=testnet
 
-# IPFS Configuration  
-FILEBASE_ACCESS_KEY_ID=your_filebase_key
-FILEBASE_SECRET_ACCESS_KEY=your_filebase_secret
+# IPFS Storage via Filebase
+FILEBASE_ACCESS_KEY_ID=your_filebase_access_key
+FILEBASE_SECRET_ACCESS_KEY=your_filebase_secret_key
 FILEBASE_BUCKET_NAME=your_bucket_name
-```
-
-### Optional Configuration
-
-```bash
-# Phase 2 AI Features
-HUGGINGFACE_API_KEY=hf_your_api_key_here
-
-# Auto-start Phase 2
-AUTO_START_PHASE2=false
+FILEBASE_REGION=us-east-1
 
 # Server Configuration
 PORT=3001
 CORS_ORIGIN=http://localhost:5173
+NODE_ENV=development
 ```
 
-See `packages/config/env/template.env` for complete configuration options.
+### Phase 2 AI Configuration (Optional)
+
+```bash
+# HuggingFace AI Integration
+HUGGINGFACE_API_KEY=hf_your_api_key_here
+
+# Phase 2 Feature Toggles
+ENABLE_SEMANTIC_ANALYSIS=true
+ENABLE_ADVANCED_PARSING=true
+AUTO_EVIDENCE_PREPARATION=true
+AUTO_START_PHASE2=false
+
+# Agent Configuration
+AGENT_POLL_INTERVAL=10000
+MOCK_IPFS_ON_FAILURE=false
+```
+
+### Advanced Configuration
+
+```bash
+# Logging Configuration
+LOG_LEVEL=INFO
+ENABLE_DETAILED_LOGS=true
+
+# Testing Configuration
+TEST_MODE=false
+MOCK_EXTERNAL_SERVICES=false
+REAL_TIME_PROCESSING=true
+
+# Future Features (Experimental)
+FETCH_PRIVATE_KEY=your_fetch_ai_private_key_here
+FLUENCE_NETWORK=testnet
+```
+
+See `packages/config/env/template.env` for complete configuration options and detailed documentation.
 
 ## 🧪 Testing
 
@@ -238,12 +317,14 @@ See `packages/config/env/template.env` for complete configuration options.
 npm run health
 ```
 
-This comprehensive check verifies:
-- ✅ Configuration validity
-- ✅ Backend service connectivity  
-- ✅ Phase 2 AI system status
-- ✅ External dependencies (Hedera, IPFS, HuggingFace)
-- ✅ File system permissions
+The health checker performs comprehensive diagnostics:
+
+- **Configuration Validation**: Checks all required environment variables
+- **Service Connectivity**: Tests backend API endpoints
+- **Phase 2 AI Status**: Verifies orchestrator functionality  
+- **External Dependencies**: Tests Hedera, IPFS, and HuggingFace connectivity
+- **Network & Permissions**: Validates file system and network access
+- **Database Status**: Checks processed claims storage
 
 ### End-to-End Testing
 
@@ -251,32 +332,70 @@ This comprehensive check verifies:
 npm run test:e2e
 ```
 
-Complete flow testing:
-1. **Service Startup**: Starts backend and frontend
-2. **Content Notarization**: Tests full notarization workflow
-3. **IPFS Verification**: Confirms content accessibility
-4. **Phase 2 Processing**: Tests AI claim parsing (if enabled)
-5. **Cleanup**: Stops test services
+Complete integration test flow:
+1. **Service Startup**: Automatically starts backend and frontend
+2. **Content Upload**: Tests file upload and notarization
+3. **IPFS Verification**: Confirms content is accessible via IPFS
+4. **Hedera Verification**: Validates blockchain transaction
+5. **Phase 2 Testing**: Tests AI claim processing (if enabled)
+6. **Gateway Testing**: Verifies multiple IPFS gateway access
+7. **Cleanup**: Stops test services and cleans up
+
+### AI Agent Testing
+
+```bash
+npm run test:agents
+```
+
+Tests Phase 2 AI functionality:
+- HuggingFace API connectivity
+- Claim parsing accuracy
+- Orchestrator processing logic
+- Error handling and recovery
 
 ## 🔍 API Documentation
 
 ### Core Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/notarize` | Submit content for notarization |
-| `GET` | `/api/health` | System health status |
-| `GET` | `/api/ipfs/:cid` | IPFS gateway URLs for CID |
+| Method | Endpoint | Description | Request | Response |
+|--------|----------|-------------|---------|----------|
+| `POST` | `/api/notarize` | Submit content for notarization | File upload or text | CID, transaction hash, IPFS links |
+| `GET` | `/api/health` | System health status | - | System status report |
+| `GET` | `/api/ipfs/:cid` | Get IPFS gateway URLs | CID parameter | Multiple gateway URLs |
 
-### Phase 2 Endpoints
+### Phase 2 AI Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/phase2/status` | Phase 2 orchestrator status |
-| `POST` | `/api/phase2/start` | Start real-time processing |
-| `POST` | `/api/phase2/stop` | Stop processing |
-| `GET` | `/api/phase2/claims` | List all processed claims |
-| `GET` | `/api/phase2/claims/:cid` | Get specific claim by CID |
+| Method | Endpoint | Description | Request | Response |
+|--------|----------|-------------|---------|----------|
+| `GET` | `/api/phase2/status` | Orchestrator status | - | Running status, processed claims count |
+| `POST` | `/api/phase2/start` | Start real-time processing | - | Success/error message |
+| `POST` | `/api/phase2/stop` | Stop processing | - | Success/error message |
+| `GET` | `/api/phase2/claims` | List processed claims | - | Array of processed claims |
+| `GET` | `/api/phase2/claims/:cid` | Get specific claim data | CID parameter | Detailed claim information |
+
+### Request/Response Examples
+
+**Notarize Content:**
+```bash
+curl -X POST http://localhost:3001/api/notarize \
+  -F "content=@document.pdf" \
+  -F "description=Legal contract v1.0"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "cid": "bafybeig...",
+  "hederaTxHash": "0.0.123456@1234567890.123456789",
+  "ipfsUrls": [
+    "https://ipfs.filebase.io/ipfs/bafybeig...",
+    "https://gateway.pinata.cloud/ipfs/bafybeig...",
+    "https://dweb.link/ipfs/bafybeig..."
+  ],
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
 
 ## 🛡️ Production Deployment
 
@@ -287,65 +406,143 @@ Complete flow testing:
    NODE_ENV=production
    PORT=3001
    AUTO_START_PHASE2=true
+   LOG_LEVEL=WARN
+   ENABLE_DETAILED_LOGS=false
    ```
 
-2. **Build Frontend**:
+2. **Build and Deploy**:
    ```bash
+   # Build frontend
    npm run build:frontend
+   
+   # Start production server
+   npm run start
    ```
 
-3. **Start Backend**:
+3. **Process Management** (recommended):
    ```bash
-   npm run start
+   # Using PM2
+   pm2 start "npm run start" --name hedera-notary
+   pm2 startup
+   pm2 save
    ```
 
 ### Security Considerations
 
-- Store private keys securely (use environment variables)
-- Enable HTTPS in production
-- Configure proper CORS origins
-- Use rate limiting for API endpoints
-- Monitor log files for security issues
+- **Environment Variables**: Store sensitive data in environment variables, never in code
+- **HTTPS**: Enable SSL/TLS in production environments
+- **CORS**: Configure proper CORS origins for production domains
+- **Rate Limiting**: Implement rate limiting on API endpoints
+- **Monitoring**: Enable logging and monitoring for security events
+- **Backup**: Regular backup of processed claims and configuration
+- **Updates**: Keep dependencies updated and monitor for security advisories
 
-## 🤝 Contributing
+### Monitoring & Maintenance
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make changes and test: `npm test`
-4. Commit changes: `git commit -m 'Add feature'`
-5. Push to branch: `git push origin feature-name`
-6. Submit a pull request
+```bash
+# Check system health in production
+curl http://your-domain:3001/api/health
+
+# Monitor Phase 2 processing
+curl http://your-domain:3001/api/phase2/status
+
+# View logs
+tail -f logs/application.log
+
+# Restart services
+pm2 restart hedera-notary
+```
 
 ## 🆘 Troubleshooting
 
 ### Common Issues
 
-**Configuration Errors**:
+**1. Configuration Errors**
 ```bash
-npm run health  # Check configuration
+# Run health check to diagnose
+npm run health
+
+# Check specific configuration
+node -e "console.log(require('./packages/config/env/config.js').config)"
 ```
 
-**Phase 2 Not Working**:
-- Ensure `HUGGINGFACE_API_KEY` is set
-- Check Phase 2 status: `curl http://localhost:3001/api/phase2/status`
+**2. Backend Connection Issues**
+```bash
+# Check if backend is running
+curl http://localhost:3001/api/health
 
-**IPFS Content Not Accessible**:
-- Verify Filebase credentials
-- Check bucket configuration
-- Try alternative gateways
+# Check logs for errors
+npm run dev:backend
+```
 
-**Frontend Connection Issues**:
-- Ensure backend is running on correct port
-- Check CORS configuration
-- Verify HashPack wallet connection
+**3. IPFS Upload Failures**
+- Verify Filebase credentials in `.env`
+- Check bucket name and region settings
+- Test Filebase connectivity: `curl https://console.filebase.com`
+- Ensure proper bucket permissions
+
+**4. Phase 2 AI Not Working**
+```bash
+# Test AI functionality
+npm run phase2:test
+
+# Check HuggingFace API key
+curl -H "Authorization: Bearer YOUR_API_KEY" https://api-inference.huggingface.co/models/gpt2
+
+# Check orchestrator status
+curl http://localhost:3001/api/phase2/status
+```
+
+**5. Frontend Connection Issues**
+- Ensure backend is running on port 3001
+- Check CORS configuration in backend `.env`
+- Verify HashPack wallet is connected
+- Check browser console for JavaScript errors
+
+**6. Hedera Transaction Failures**
+- Verify account ID and private key format
+- Ensure sufficient HBAR balance
+- Check Hedera network status
+- Test with Hedera testnet faucet
 
 ### Debug Mode
 
-Enable detailed logging:
+Enable comprehensive debugging:
 ```bash
+# In apps/backend/config/.env
 LOG_LEVEL=DEBUG
 ENABLE_DETAILED_LOGS=true
+TEST_MODE=true
+MOCK_EXTERNAL_SERVICES=false
 ```
+
+### Getting Help
+
+1. **Check Documentation**: Review `IPFS_SETUP.md` and `QUICK_START_TESTING.md`
+2. **Run Diagnostics**: Always start with `npm run health`
+3. **Check Logs**: Enable debug logging for detailed error information
+4. **Test Components**: Use individual test commands to isolate issues
+5. **GitHub Issues**: Report bugs with full error logs and system information
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Install dependencies: `npm run setup`
+4. Run tests: `npm test`
+5. Make your changes and test thoroughly
+6. Run health check: `npm run health`
+7. Commit changes: `git commit -m 'Add amazing feature'`
+8. Push to branch: `git push origin feature/amazing-feature`
+9. Submit a pull request
+
+### Development Guidelines
+
+- **Code Style**: Use Prettier for formatting (`npm run format`)
+- **Linting**: Fix all ESLint issues (`npm run lint`)
+- **Testing**: Ensure all tests pass (`npm test`)
+- **Documentation**: Update README and inline documentation
+- **Configuration**: Follow unified config patterns in `packages/config/`
 
 ## 📄 License
 
@@ -354,12 +551,23 @@ This project is licensed under the ISC License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - [Hedera Hashgraph](https://hedera.com/) for blockchain infrastructure
-- [Filebase](https://filebase.com/) for IPFS storage
-- [HuggingFace](https://huggingface.co/) for AI models
-- [HashPack](https://hashpack.app/) for wallet integration
+- [Filebase](https://filebase.com/) for IPFS storage and S3 compatibility
+- [HuggingFace](https://huggingface.co/) for AI models and inference API
+- [HashPack](https://hashpack.app/) for seamless wallet integration
+- [Material-UI](https://mui.com/) for React component library
+- [Vite](https://vitejs.dev/) for fast frontend development
 
 ---
 
 ## 🎉 **Ready to Create Unbreakable Digital Proof!** 🛡️
 
-**Your content. Your timestamp. Your proof. Forever.**
+**Your content. Your timestamp. Your proof. Forever on the blockchain.**
+
+### Quick Links
+- 📖 [IPFS Setup Guide](IPFS_SETUP.md)
+- 🚀 [Quick Start Testing](QUICK_START_TESTING.md)
+- 🔧 [Configuration Template](packages/config/env/template.env)
+- 🏥 Health Check: `npm run health`
+- 🧪 Full Test Suite: `npm test`
+
+*Built with ❤️ using Hedera, IPFS, and AI*
