@@ -12,6 +12,21 @@ dist
 dist-ssr
 *.local
 
+# Environment variables and sensitive files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+.env.*
+!.env.example
+!.env.template
+
+# API keys and credentials
+config.json
+secrets.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +37,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS generated files
+Thumbs.db
+*.tmp
+*.temp
+
+# Build and deployment
+build/
+dist/
+.next/
+.nuxt/
+.output/
