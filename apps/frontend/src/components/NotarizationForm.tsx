@@ -261,7 +261,7 @@ export default function NotarizationForm() {
                 
                 {/* File Upload - Modern Design */}
                 <motion.label
-            htmlFor="file-upload"
+                  htmlFor="file-upload"
                   className="relative group"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
