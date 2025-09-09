@@ -74,7 +74,32 @@ Hedera_Test/
 └── 📄 package.json              # Root workspace configuration
 ```
 
-## 🚀 Quick Start
+## ⚡ **TL;DR - Start Server in 30 Seconds**
+
+```bash
+# 1. Navigate to project directory
+cd /Users/prajwal.m/Hedera_Test
+
+# 2. Install dependencies (first time only)
+npm install
+
+# 3. Copy environment template
+cp packages/config/env/template.env apps/backend/config/.env
+
+# 4. Edit your credentials in apps/backend/config/.env
+# (Add your Hedera account ID, private key, and Filebase credentials)
+
+# 5. Start both frontend and backend
+npm run dev
+
+# 6. Open browser to http://localhost:5173
+```
+
+**🎉 Done! Backend on port 3001, Frontend on port 5173**
+
+---
+
+## 🚀 Detailed Setup Guide
 
 ### Prerequisites
 
@@ -133,25 +158,102 @@ This comprehensive check validates:
 
 ### 4. Start the Platform
 
+#### 🚀 **Quick Start (Recommended)**
+
 ```bash
-# Development mode (both frontend and backend)
+# FROM PROJECT ROOT DIRECTORY (/Users/prajwal.m/Hedera_Test)
+# This starts both frontend and backend simultaneously
 npm run dev
+```
+**✅ This single command runs both services concurrently!**
 
-# Or start individually
-npm run dev:backend    # Backend only (port 3001)
-npm run dev:frontend   # Frontend only (port 5173)
+#### 📊 **Individual Service Startup**
 
-# Production mode
-npm run start         # Backend in production mode
-npm run build         # Build frontend for production
+If you prefer to run services separately:
+
+```bash
+# Terminal 1: Start Backend (from project root)
+npm run dev:backend
+
+# Terminal 2: Start Frontend (from project root)  
+npm run dev:frontend
 ```
 
-### 5. Access the Application
+#### 🔧 **Manual Backend Startup (Alternative)**
 
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:3001
-- **Health Check**: http://localhost:3001/api/health
-- **Phase 2 Status**: http://localhost:3001/api/phase2/status
+```bash
+# If you need to start just the backend manually
+cd apps/backend
+npm install  # Ensure dependencies are installed
+npm run dev  # This runs: nodemon src/server.js
+```
+
+#### ⚠️ **Important Notes:**
+- **Always run commands from the PROJECT ROOT** unless specified otherwise
+- **Backend runs on port 3001**, Frontend on port 5173
+- **Both services must be running** for full functionality
+- **Wait for backend startup** before using the frontend
+
+### 5. Verify Services Are Running
+
+#### ✅ **Check Backend Status**
+```bash
+# Test backend health
+curl http://localhost:3001/api/health
+
+# Should return: {"success": true, "message": "Server is running", ...}
+```
+
+#### ✅ **Check Frontend Access**
+- Open browser to **http://localhost:5173**
+- You should see the "Hedera Notary" interface
+
+### 6. Access the Application
+
+- **🎨 Frontend UI**: http://localhost:5173
+- **🔧 Backend API**: http://localhost:3001
+- **🏥 Health Check**: http://localhost:3001/api/health
+- **🤖 Phase 2 AI Status**: http://localhost:3001/api/phase2/status
+- **🧪 Test Filebase**: http://localhost:3001/api/test-filebase
+
+### 7. Verify Everything Works
+
+#### ✅ **Step-by-Step Verification**
+
+1. **Check Backend is Running:**
+   ```bash
+   curl http://localhost:3001/api/health
+   # Should return: {"success": true, "message": "Server is running", ...}
+   ```
+
+2. **Check Frontend Loads:**
+   - Open http://localhost:5173
+   - You should see: "Hedera Notary" interface with upload area
+
+3. **Test Complete Notarization Flow:**
+   ```bash
+   # Quick API test
+   curl -X POST http://localhost:3001/api/notarize \
+     -F "accountId=0.0.6752951" \
+     -F "contentType=text" \
+     -F "text=Hello World Test"
+   
+   # Should return success with IPFS CID and Hedera transaction hash
+   ```
+
+4. **Expected Console Output on Startup:**
+   ```
+   🚀 HEDERA CONTENT NOTARIZATION PLATFORM
+   📡 Server running on: http://localhost:3001
+   🔗 IPFS integration: ✅ Ready
+   ⚡ Hedera network: testnet (Connected)
+   🤖 Phase 2 AI: Available
+   ```
+
+#### 🚨 **If Something Doesn't Work:**
+1. Check the [Troubleshooting Section](#-troubleshooting) below
+2. Run `npm run health` for complete diagnostics
+3. Ensure all environment variables are set in `apps/backend/config/.env`
 
 ## 🎯 How It Works
 
@@ -199,7 +301,18 @@ sequenceDiagram
 
 ## 📊 Available Scripts
 
-### Development & Deployment
+### 🚀 **Most Used Commands**
+
+```bash
+# Primary development commands (run from project root)
+npm run dev               # 🎯 Start both frontend and backend
+npm run health            # 🏥 Check complete system status
+npm run dev:backend       # 🔧 Start backend only (port 3001)
+npm run dev:frontend      # 🎨 Start frontend only (port 5173)
+npm run setup             # 📦 Install all dependencies
+```
+
+### 🔧 **Development & Deployment**
 
 ```bash
 # Development
@@ -455,7 +568,56 @@ pm2 restart hedera-notary
 
 ## 🆘 Troubleshooting
 
-### Common Issues
+### 🚨 **Server Startup Issues**
+
+**Problem: `nodemon: command not found`**
+```bash
+# Solution: Install dependencies from project root
+cd /Users/prajwal.m/Hedera_Test
+npm install
+
+# Then install backend dependencies
+cd apps/backend
+npm install
+
+# Go back to root and try again
+cd ../..
+npm run dev
+```
+
+**Problem: `Missing script: "start"`**
+```bash
+# Solution: Always run commands from PROJECT ROOT
+pwd  # Should show: /Users/prajwal.m/Hedera_Test
+npm run dev  # ✅ Correct
+```
+
+**Problem: `Cannot find module '/Users/prajwal.m/Hedera_Test/apps/backend/server.js'`**
+```bash
+# Solution: The server file is in src/ subdirectory
+# This should be automatically handled by package.json scripts
+# If issue persists, manually check:
+ls apps/backend/src/server.js  # Should exist
+```
+
+**Problem: `EADDRINUSE: address already in use :::3001`**
+```bash
+# Solution: Kill existing process
+pkill -f "node.*server.js"
+# OR find and kill specific process
+lsof -ti:3001 | xargs kill -9
+# Then restart
+npm run dev
+```
+
+**Problem: `SyntaxError` in server.js**
+```bash
+# Solution: Check for incomplete code edits
+# Restart the server after any code changes
+npm run dev:backend
+```
+
+### 🔧 **Configuration Issues**
 
 **1. Configuration Errors**
 ```bash
@@ -471,17 +633,53 @@ node -e "console.log(require('./packages/config/env/config.js').config)"
 # Check if backend is running
 curl http://localhost:3001/api/health
 
-# Check logs for errors
+# If connection refused, backend isn't running:
 npm run dev:backend
+
+# Check backend logs for errors
+cd apps/backend && npm run dev
 ```
 
-**3. IPFS Upload Failures**
-- Verify Filebase credentials in `.env`
-- Check bucket name and region settings
-- Test Filebase connectivity: `curl https://console.filebase.com`
-- Ensure proper bucket permissions
+**3. Environment Variables Not Loading**
+```bash
+# Ensure .env file exists in correct location
+ls apps/backend/config/.env
 
-**4. Phase 2 AI Not Working**
+# If missing, copy template:
+cp packages/config/env/template.env apps/backend/config/.env
+# Then edit with your credentials
+```
+
+### 🌐 **IPFS & Network Issues**
+
+**4. IPFS Upload Failures**
+```bash
+# Test Filebase connectivity
+curl http://localhost:3001/api/test-filebase
+
+# Common solutions:
+# - Verify Filebase credentials in apps/backend/config/.env
+# - Check bucket name and region settings
+# - Corporate firewall may block Filebase (expected behavior)
+```
+
+**5. Corporate Network Issues**
+```bash
+# If behind corporate firewall (like Zscaler):
+# This is EXPECTED and handled gracefully
+# The system will generate local IPFS CIDs
+# Content may not be available on public IPFS network
+
+# Check if local CID generation works:
+curl -X POST http://localhost:3001/api/notarize \
+  -F "accountId=0.0.6752951" \
+  -F "contentType=text" \
+  -F "text=test"
+```
+
+### 🤖 **AI & Phase 2 Issues**
+
+**6. Phase 2 AI Not Working**
 ```bash
 # Test AI functionality
 npm run phase2:test
@@ -493,17 +691,55 @@ curl -H "Authorization: Bearer YOUR_API_KEY" https://api-inference.huggingface.c
 curl http://localhost:3001/api/phase2/status
 ```
 
-**5. Frontend Connection Issues**
-- Ensure backend is running on port 3001
-- Check CORS configuration in backend `.env`
-- Verify HashPack wallet is connected
-- Check browser console for JavaScript errors
+### 🖥️ **Frontend Issues**
 
-**6. Hedera Transaction Failures**
-- Verify account ID and private key format
-- Ensure sufficient HBAR balance
-- Check Hedera network status
-- Test with Hedera testnet faucet
+**7. Frontend Connection Issues**
+```bash
+# Ensure backend is running first
+curl http://localhost:3001/api/health
+
+# Start frontend (from project root)
+npm run dev:frontend
+
+# Common solutions:
+# - Clear browser cache
+# - Check browser console for errors
+# - Verify CORS settings in backend .env
+# - Ensure HashPack wallet is installed
+```
+
+**8. Logo Not Displaying**
+```bash
+# Check logo file location
+ls apps/frontend/public/Logo.png
+
+# If missing, move logo to correct location:
+mv Logo.png apps/frontend/public/
+```
+
+### ⚡ **Quick Fixes**
+
+**9. "Everything is broken" - Nuclear Option**
+```bash
+# Complete reset (from project root)
+npm run clean        # Remove all node_modules
+npm run setup        # Reinstall everything
+npm run health       # Verify configuration
+npm run dev          # Start services
+```
+
+**10. Still Having Issues?**
+```bash
+# Get detailed system information
+npm run health       # Shows complete system status
+node --version       # Should be 18+
+npm --version        # Should be recent
+
+# Check all services individually
+curl http://localhost:3001/api/health     # Backend
+curl http://localhost:5173               # Frontend  
+curl http://localhost:3001/api/test-filebase  # IPFS
+```
 
 ### Debug Mode
 
