@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { Upload, FileText, CheckCircle2, Loader2 } from "lucide-react";
+import { Upload, FileText, CheckCircle2, Loader2, Brain, Shield, Globe, Clock, Database, Zap, Eye, Award } from "lucide-react";
 
 export default function NotarizationForm() {
   const [text, setText] = useState("");
@@ -70,17 +70,29 @@ export default function NotarizationForm() {
       const result = await response.json();
       
       setResult({
+        // Core notarization data
         cid: result.ipfsCid,
         hash: result.hederaTransactionHash || 'No transaction hash',
         ipfsUrl: result.ipfsGatewayUrl,
-        ipfsUrls: result.alternativeIPFSUrls || [result.ipfsGatewayUrl], // All available gateways
+        ipfsUrls: result.alternativeIPFSUrls || [result.ipfsGatewayUrl],
+        hederaExplorerUrl: result.hederaExplorerUrl,
         filebaseUrl: result.filebaseUrl,
         topicId: result.hederaTopicId,
         success: result.success,
-        ipfsNote: result.ipfsNote,
+        message: result.message,
+        timestamp: result.timestamp,
+        
+        // Enhanced internal processing data
+        internalProcessing: result.internalProcessing || {},
+        
+        // Legacy fields (for backward compatibility)
+        ipfsNote: result.ipfsNote || result.internalProcessing?.verificationStatus?.note,
         ipfsWarning: result.ipfsWarning,
-        ipfsError: result.ipfsError,
-        hederaError: result.hederaError
+        ipfsError: result.errors?.ipfs,
+        hederaError: result.errors?.hedera,
+        
+        // Debug information
+        debug: result.debug || {}
       });
       setProgress(100);
       
@@ -168,132 +180,276 @@ export default function NotarizationForm() {
             </Button>
           </div>
 
-          {/* Results */}
+          {/* Enhanced Results Display */}
           {result && (
             <motion.div
-              className={`mt-6 p-4 rounded-xl shadow-md ${
-                result.error 
-                  ? 'bg-red-50 border border-red-200' 
-                  : 'bg-green-50 border border-green-200'
-              }`}
+              className="mt-6 space-y-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
               {result.error ? (
-                <>
-                  <div className="flex items-center gap-2 text-red-700 font-semibold mb-2">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    Notarization Failed
-                  </div>
-                  <p className="text-sm text-red-700">
-                    {result.error}
-                  </p>
-                </>
+                /* Error Display */
+                <Card className="border-red-200 bg-red-50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-red-700 font-semibold mb-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Notarization Failed
+                    </div>
+                    <p className="text-sm text-red-700">{result.error}</p>
+                  </CardContent>
+                </Card>
               ) : (
-                <>
-                  <div className="flex items-center gap-2 text-green-700 font-semibold mb-2">
-                    <CheckCircle2 className="w-5 h-5" />
-                    Notarization Successful
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">IPFS CID:</span>{' '}
-                      <span className="font-mono text-blue-600">{result.cid}</span>
-                    </p>
-                    {result.hash && (
-                      <p className="text-sm text-gray-700">
-                        <span className="font-semibold">Hedera TX Hash:</span>{' '}
-                        <span className="font-mono text-purple-600">{result.hash}</span>
-                      </p>
-                    )}
-                    {result.topicId && (
-                      <p className="text-sm text-gray-700">
-                        <span className="font-semibold">HCS Topic ID:</span>{' '}
-                        <span className="font-mono text-green-600">{result.topicId}</span>
-                      </p>
-                    )}
-                    {result.ipfsUrl && (
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-700">
-                          <span className="font-semibold">Primary IPFS Gateway:</span>{' '}
+                <div className="space-y-4">
+                  {/* Main Success Card */}
+                  <Card className="border-green-200 bg-green-50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 text-green-700 font-semibold mb-3">
+                        <CheckCircle2 className="w-6 h-6" />
+                        Content Successfully Notarized!
+                      </div>
+                      {result.message && (
+                        <p className="text-sm text-green-700 mb-3">{result.message}</p>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="font-semibold text-gray-700">IPFS CID:</span>
+                          <div className="font-mono text-blue-600 text-xs break-all mt-1">{result.cid}</div>
+                        </div>
+                        {result.hash && (
+                          <div>
+                            <span className="font-semibold text-gray-700">Hedera Transaction:</span>
+                            <div className="font-mono text-purple-600 text-xs break-all mt-1">{result.hash}</div>
+                          </div>
+                        )}
+                      </div>
+                      {result.timestamp && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
+                          <Clock className="w-4 h-4" />
+                          Notarized at: {new Date(result.timestamp).toLocaleString()}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Internal Processing Status */}
+                  {result.internalProcessing && (
+                    <Card className="border-blue-200 bg-blue-50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Zap className="w-5 h-5 text-blue-600" />
+                          Internal Processing Status
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Processing Steps Completed */}
+                        {result.debug?.internalStepsCompleted && (
+                          <div>
+                            <h4 className="font-semibold text-sm text-gray-700 mb-2">✅ Processing Steps Completed:</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {result.debug.internalStepsCompleted.map((step: string, index: number) => (
+                                <span key={index} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-md">
+                                  {step.replace(/_/g, ' ').toUpperCase()}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Phase 2 AI Status */}
+                        <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                          <div className="flex items-center gap-2">
+                            <Brain className={`w-5 h-5 ${result.internalProcessing.phase2Triggered ? 'text-green-600' : 'text-gray-400'}`} />
+                            <span className="font-medium">Phase 2 AI Processing</span>
+                          </div>
+                          <div className="text-right">
+                            <div className={`text-sm font-semibold ${result.internalProcessing.phase2Triggered ? 'text-green-600' : 'text-gray-500'}`}>
+                              {result.internalProcessing.phase2Triggered ? '✅ ACTIVE' : '⭕ NOT TRIGGERED'}
+                            </div>
+                            {result.internalProcessing.phase2Status && (
+                              <div className="text-xs text-gray-600">{result.internalProcessing.phase2Status}</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Verification Status */}
+                        {result.internalProcessing.verificationStatus && (
+                          <div className="p-3 bg-white rounded-lg border">
+                            <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+                              <Shield className="w-4 h-4" />
+                              Real-time Verification
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${result.internalProcessing.verificationStatus.ipfsAccessible === true ? 'bg-green-500' : result.internalProcessing.verificationStatus.ipfsAccessible === 'timeout' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+                                <span>IPFS Access: {result.internalProcessing.verificationStatus.ipfsAccessible === true ? 'Success' : result.internalProcessing.verificationStatus.ipfsAccessible === 'timeout' ? 'Timeout' : 'Failed'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${result.internalProcessing.verificationStatus.hederaRecorded ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                <span>Hedera: {result.internalProcessing.verificationStatus.hederaRecorded ? 'Recorded' : 'Failed'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${result.internalProcessing.verificationStatus.contentIntegrity ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                <span>Integrity: {result.internalProcessing.verificationStatus.contentIntegrity ? 'Valid' : 'Invalid'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Next Steps */}
+                        {result.internalProcessing.nextSteps && (
+                          <div className="p-3 bg-white rounded-lg border">
+                            <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+                              <Eye className="w-4 h-4" />
+                              Next Steps
+                            </h4>
+                            <div className="space-y-1 text-xs text-gray-600">
+                              <div>🤖 AI Analysis: {result.internalProcessing.nextSteps.aiAnalysis}</div>
+                              <div>🔍 Verification: {result.internalProcessing.nextSteps.verification}</div>
+                              <div>📊 Monitoring: {result.internalProcessing.nextSteps.monitoring}</div>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Proof Package */}
+                  {result.internalProcessing?.proofPackage && (
+                    <Card className="border-purple-200 bg-purple-50">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          <Award className="w-5 h-5 text-purple-600" />
+                          Legal Proof Package
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <span className="font-semibold text-gray-700">Notarization ID:</span>
+                            <div className="font-mono text-purple-600 text-xs mt-1">{result.internalProcessing.proofPackage.notarizationId}</div>
+                          </div>
+                          <div>
+                            <span className="font-semibold text-gray-700">Content Fingerprint:</span>
+                            <div className="font-mono text-blue-600 text-xs mt-1 break-all">{result.internalProcessing.proofPackage.contentFingerprint}</div>
+                          </div>
+                        </div>
+                        
+                        {result.internalProcessing.proofPackage.legalAdmissibility && (
+                          <div className="p-3 bg-white rounded-lg border">
+                            <h4 className="font-semibold text-sm text-gray-700 mb-2">Legal Admissibility Features:</h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {Object.entries(result.internalProcessing.proofPackage.legalAdmissibility).map(([key, value]: [string, any]) => (
+                                <div key={key} className="flex items-center gap-2">
+                                  <div className={`w-2 h-2 rounded-full ${value ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                  <span>{key.replace(/([A-Z])/g, ' $1').toLowerCase()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Access Links */}
+                  <Card className="border-gray-200">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <Globe className="w-5 h-5 text-blue-600" />
+                        Access Your Content
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {result.ipfsUrl && (
+                        <div>
+                          <span className="font-semibold text-sm text-gray-700">Primary IPFS Gateway:</span>
                           <a 
                             href={result.ipfsUrl} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline font-mono text-xs break-all"
+                            className="block text-blue-600 hover:underline font-mono text-xs break-all mt-1 p-2 bg-blue-50 rounded"
                           >
                             {result.ipfsUrl}
                           </a>
-                        </p>
-                        
-                        {result.ipfsUrls && result.ipfsUrls.length > 1 && (
-                          <details className="text-sm text-gray-600">
-                            <summary className="cursor-pointer hover:text-gray-800">
-                              Alternative IPFS Gateways ({result.ipfsUrls.length - 1} more)
-                            </summary>
-                            <div className="ml-4 mt-1 space-y-1">
-                              {result.ipfsUrls.slice(1).map((url: string, index: number) => (
-                                <div key={index}>
-                                  <a 
-                                    href={url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-blue-500 hover:underline font-mono text-xs break-all"
-                                  >
-                                    {url}
-                                  </a>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
-                        
-                        {result.filebaseUrl && (
-                          <p className="text-xs text-gray-500">
-                            <span className="font-semibold">Filebase URL:</span>{' '}
-                            <a 
-                              href={result.filebaseUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-gray-600 hover:underline font-mono break-all"
-                            >
-                              {result.filebaseUrl}
-                            </a>
+                        </div>
+                      )}
+                      
+                      {result.hederaExplorerUrl && (
+                        <div>
+                          <span className="font-semibold text-sm text-gray-700">Blockchain Explorer:</span>
+                          <a 
+                            href={result.hederaExplorerUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="block text-purple-600 hover:underline font-mono text-xs break-all mt-1 p-2 bg-purple-50 rounded"
+                          >
+                            {result.hederaExplorerUrl}
+                          </a>
+                        </div>
+                      )}
+
+                      {result.ipfsUrls && result.ipfsUrls.length > 1 && (
+                        <details className="text-sm text-gray-600">
+                          <summary className="cursor-pointer hover:text-gray-800 font-semibold">
+                            Alternative IPFS Gateways ({result.ipfsUrls.length - 1} more)
+                          </summary>
+                          <div className="mt-2 space-y-1">
+                            {result.ipfsUrls.slice(1).map((url: string, index: number) => (
+                              <a 
+                                key={index}
+                                href={url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="block text-blue-500 hover:underline font-mono text-xs break-all p-2 bg-gray-50 rounded"
+                              >
+                                {url}
+                              </a>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Debug Information */}
+                  {result.debug && Object.keys(result.debug).length > 0 && (
+                    <details className="text-sm">
+                      <summary className="cursor-pointer hover:text-gray-800 font-semibold flex items-center gap-2 p-3 bg-gray-50 rounded">
+                        <Database className="w-4 h-4" />
+                        Debug Information
+                      </summary>
+                      <Card className="mt-2 border-gray-200 bg-gray-50">
+                        <CardContent className="p-3">
+                          <pre className="text-xs text-gray-600 overflow-x-auto">
+                            {JSON.stringify(result.debug, null, 2)}
+                          </pre>
+                        </CardContent>
+                      </Card>
+                    </details>
+                  )}
+
+                  {/* Error Messages */}
+                  {(result.ipfsError || result.hederaError) && (
+                    <Card className="border-yellow-200 bg-yellow-50">
+                      <CardContent className="p-3">
+                        <h4 className="font-semibold text-sm text-yellow-800 mb-2">⚠️ Warnings</h4>
+                        {result.ipfsError && (
+                          <p className="text-xs text-yellow-700 mb-1">
+                            IPFS: {result.ipfsError}
                           </p>
                         )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* IPFS Status Information */}
-                  {(result.ipfsNote || result.ipfsWarning || result.ipfsError) && (
-                    <div className="mt-3 p-2 rounded-md border">
-                      {result.ipfsNote && (
-                        <p className="text-xs text-green-700 mb-1">
-                          ℹ️ {result.ipfsNote}
-                        </p>
-                      )}
-                      {result.ipfsWarning && (
-                        <p className="text-xs text-yellow-700 mb-1">
-                          ⚠️ {result.ipfsWarning}
-                        </p>
-                      )}
-                      {result.ipfsError && (
-                        <p className="text-xs text-red-700 mb-1">
-                          ❌ IPFS: {result.ipfsError}
-                        </p>
-                      )}
-                      {result.hederaError && (
-                        <p className="text-xs text-red-700">
-                          ❌ Hedera: {result.hederaError}
-                        </p>
-                      )}
-                    </div>
+                        {result.hederaError && (
+                          <p className="text-xs text-yellow-700">
+                            Hedera: {result.hederaError}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
                   )}
-                </>
+                </div>
               )}
             </motion.div>
           )}
