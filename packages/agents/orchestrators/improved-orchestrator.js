@@ -3,6 +3,8 @@ import { Client, AccountId, PrivateKey } from '@hashgraph/sdk';
 import { config } from '../../config/env/config.js';
 import IntelligentClaimParser from '../parsers/intelligent-claim-parser.js';
 import contentStore from '../content-store.js';
+// Phase 3 integration
+// import EvidenceRetrievalAgent from '../evidence/evidence-retrieval-agent.js';
 
 /**
  * Improved Phase 2 Orchestrator with IPFS Propagation Handling
@@ -192,8 +194,30 @@ class ImprovedOrchestrator {
             // Fetch content with enhanced retry mechanism
             const content = await this.fetchIPFSContentWithRetry(cid);
             
-            // Parse content using AI
+            // Parse content using AI (Phase 2)
             const parsedClaim = await this.claimParser.parseClaim(content);
+            
+            // PHASE 3 INTEGRATION POINT - Evidence Retrieval
+            // Uncomment to enable Phase 3:
+            /*
+            let evidencePackage = null;
+            if (config.features.phase3Enabled) {
+                try {
+                    this.log(`🔍 PHASE 3: Starting evidence retrieval for CID: ${cid}`, 'INFO');
+                    evidencePackage = await this.evidenceAgent.retrieveEvidence({
+                        ...parsedClaim,
+                        cid: cid,
+                        originalText: content
+                    });
+                    this.log(`✅ PHASE 3: Evidence retrieval completed`, 'SUCCESS', {
+                        evidenceCount: evidencePackage.evidence.length,
+                        method: evidencePackage.retrievalMethod
+                    });
+                } catch (error) {
+                    this.log(`⚠️ PHASE 3: Evidence retrieval failed: ${error.message}`, 'WARN');
+                }
+            }
+            */
             
             // Update stored claim with processed data
             const processedClaim = {

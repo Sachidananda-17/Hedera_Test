@@ -195,6 +195,11 @@ class IntelligentClaimParser {
      */
     async classifyClaimHF(text) {
         try {
+            // First check if this is a question - this takes priority over content classification
+            if (this.isQuestionText(text)) {
+                return 'question';
+            }
+            
             const response = await this.hf.zeroShotClassification({
                 model: 'facebook/bart-large-mnli',
                 inputs: text,
@@ -249,17 +254,35 @@ class IntelligentClaimParser {
      * Pattern-based fallback (fast local processing)
      */
     async parseWithPatterns(text) {
+        // Check if this is a question first
+        const isQuestion = this.isQuestionText(text);
+        
         // Use the same logic as simple parser but mark as fallback
         const entities = this.extractEntities(text);
         const actions = this.extractActions(text);
         const contexts = this.extractContexts(text);
         
+        let claimType = this.determineClaimType(text, [], entities, actions);
+        if (isQuestion) claimType = 'question';
+        
+        let predicate;
+        if (isQuestion) {
+            const words = text.toLowerCase().split(/\s+/);
+            if (words[0] === 'is' || words[0] === 'are') {
+                predicate = 'is-questioned-to-be';
+            } else {
+                predicate = 'is-questioned-about';
+            }
+        } else {
+            predicate = actions.length > 0 ? actions[0] : this.extractMainAction(text);
+        }
+        
         return {
-            type: this.determineClaimType(text, [], entities, actions),
+            type: claimType,
             confidence: this.calculatePatternConfidence(entities, actions),
             
             subject: entities.length > 0 ? entities[0] : this.extractMainSubject(text),
-            predicate: actions.length > 0 ? actions[0] : this.extractMainAction(text),
+            predicate: predicate,
             object: contexts.length > 0 ? contexts[0] : this.extractMainObject(text),
             
             entities: entities,
@@ -276,6 +299,35 @@ class IntelligentClaimParser {
 
     // Helper methods for HuggingFace processing
     extractSubjectHF(text, entities) {
+        // Check if this is a question first
+        const isQuestion = this.isQuestionText(text);
+        
+        // For questions, skip question words and find the actual subject
+        if (isQuestion) {
+            const questionWords = ['is', 'are', 'was', 'were', 'do', 'does', 'did', 'can', 'could', 'will', 'would', 'should', 'shall', 'has', 'have', 'had'];
+            const words = text.split(/\s+/);
+            
+            // Find entities that are NOT question words
+            const validEntities = entities.filter(entity => 
+                !questionWords.includes(entity.text.toLowerCase())
+            );
+            
+            if (validEntities.length > 0) {
+                // Priority: Person > Organization > Location > First valid entity
+                const personEntity = validEntities.find(e => e.label === 'PER' || e.label === 'PERSON');
+                if (personEntity) return personEntity.text;
+                
+                const orgEntity = validEntities.find(e => e.label === 'ORG' || e.label === 'ORGANIZATION');
+                if (orgEntity) return orgEntity.text;
+                
+                const locEntity = validEntities.find(e => e.label === 'LOC' || e.label === 'LOCATION');
+                if (locEntity) return locEntity.text;
+                
+                return validEntities[0].text;
+            }
+        }
+        
+        // For statements, use original logic
         // Priority: Person > Organization > Location > First entity > Pattern fallback
         const personEntity = entities.find(e => e.label === 'PER' || e.label === 'PERSON');
         if (personEntity) return personEntity.text;
@@ -290,7 +342,25 @@ class IntelligentClaimParser {
     }
 
     extractPredicateHF(text) {
-        // Use pattern matching for predicates (still reliable)
+        // Check if this is a question
+        const isQuestion = this.isQuestionText(text);
+        
+        if (isQuestion) {
+            // For questions like "Is Pluto a planet?", the predicate should reflect the questioning nature
+            const words = text.toLowerCase().split(/\s+/);
+            if (words[0] === 'is' || words[0] === 'are') {
+                return 'is-questioned-to-be'; // More descriptive predicate for questions
+            }
+            if (words[0] === 'can' || words[0] === 'could') {
+                return 'is-questioned-can-be';
+            }
+            if (words[0] === 'will' || words[0] === 'would') {
+                return 'is-questioned-will-be';
+            }
+            return 'is-questioned-about'; // Generic question predicate
+        }
+        
+        // Use pattern matching for predicates (still reliable for statements)
         for (const pattern of this.actionPatterns) {
             const match = text.match(pattern);
             if (match) return match[1] || match[0];
@@ -341,6 +411,12 @@ class IntelligentClaimParser {
         this.cache.set(key, { ...result, cached: true });
     }
 
+    // Clear cache (useful when logic changes)
+    clearCache() {
+        this.cache.clear();
+        this.log('🗑️ Cache cleared', 'INFO');
+    }
+
     // Pattern-based helper methods (copied from simple parser)
     extractEntities(text) {
         const entities = [];
@@ -387,7 +463,18 @@ class IntelligentClaimParser {
 
     extractMainSubject(text) {
         const words = text.split(/\s+/);
-        const capitalizedWords = words.filter(word => /^[A-Z]/.test(word));
+        
+        // Question words that should be skipped when finding the subject
+        const questionWords = ['is', 'are', 'was', 'were', 'do', 'does', 'did', 'can', 'could', 'will', 'would', 'should', 'shall', 'has', 'have', 'had'];
+        
+        // Check if this is a question by looking at the first word
+        let startIndex = 0;
+        if (words.length > 0 && questionWords.includes(words[0].toLowerCase())) {
+            startIndex = 1; // Skip the question word
+        }
+        
+        // Find capitalized words starting from the appropriate index
+        const capitalizedWords = words.slice(startIndex).filter(word => /^[A-Z]/.test(word));
         return capitalizedWords.length > 0 ? capitalizedWords[0] : 'unknown';
     }
 
@@ -407,6 +494,54 @@ class IntelligentClaimParser {
             !/^(the|and|or|but|in|on|at|to|for|of|with|by|again|\?)$/i.test(word)
         );
         return significantWords.length > 0 ? significantWords[significantWords.length - 1] : 'unknown';
+    }
+
+    isQuestionText(text) {
+        // Check multiple indicators that this is a question
+        const trimmedText = text.trim().toLowerCase();
+        
+        // Check if it ends with a question mark
+        if (trimmedText.endsWith('?')) return true;
+        
+        // Check if it starts with question words
+        const questionWords = ['is', 'are', 'was', 'were', 'do', 'does', 'did', 'can', 'could', 'will', 'would', 'should', 'shall', 'has', 'have', 'had', 'who', 'what', 'when', 'where', 'why', 'how'];
+        const firstWord = trimmedText.split(/\s+/)[0]?.toLowerCase();
+        
+        if (questionWords.includes(firstWord)) return true;
+        
+        // Check for question patterns at the end of the text
+        const questionEndings = [
+            'is this true',
+            'is that true', 
+            'is this correct',
+            'is that correct',
+            'is this right',
+            'is that right',
+            'right?',
+            'true?',
+            'correct?',
+            'really?'
+        ];
+        
+        for (const ending of questionEndings) {
+            if (trimmedText.endsWith(ending)) return true;
+        }
+        
+        // Check for embedded question patterns
+        const questionPatterns = [
+            /\bis this\b/,
+            /\bis that\b/,
+            /\bdo you\b/,
+            /\bcan you\b/,
+            /\bwould you\b/,
+            /\bcould you\b/
+        ];
+        
+        for (const pattern of questionPatterns) {
+            if (pattern.test(trimmedText)) return true;
+        }
+        
+        return false;
     }
 
     deduplicateEntities(entities) {
