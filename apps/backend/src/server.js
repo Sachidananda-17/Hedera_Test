@@ -18,8 +18,10 @@ dotenv.config({ path: path.join(process.cwd(), 'config', '.env') });
 // Import unified configuration
 import { config, validateConfig, getConfigSummary } from '../../../packages/config/env/config.js';
 
-// Import main orchestrator (renamed from production-orchestrator)
+// Import orchestrators
 import MainOrchestrator from '../../../packages/agents/orchestrators/main-orchestrator.js';
+import ImprovedOrchestrator from '../../../packages/agents/orchestrators/improved-orchestrator.js';
+import contentStore from '../../../packages/agents/content-store.js';
 
 // Validate configuration before starting
 try {
@@ -111,9 +113,19 @@ app.get('/api/health', (req, res) => {
     services: {
       hedera: !!hederaClient,
       filebase: !!(config.filebase.accessKeyId && config.filebase.secretAccessKey),
-      ipfs: true
+      ipfs: true,
+      contentStore: contentStore.getStats()
     },
     timestamp: new Date().toISOString()
+  });
+});
+
+// Content store status endpoint
+app.get('/api/content-store/status', (req, res) => {
+  res.json({
+    success: true,
+    ...contentStore.getStats(),
+    availableCIDs: contentStore.getCIDs()
   });
 });
 
@@ -365,6 +377,20 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       console.log(`🎯 Local CID generated: ${actualIPFSCid}`);
       ipfsSuccess = true;
       uploadMethod = 'local-only';
+      
+      // Step 1.5: Store content in local content store for immediate orchestrator access
+      console.log('🗃️ Storing content in local content store...');
+      const contentText = actualContentType === 'text' ? text : `Image file: ${file?.originalname}${actualContentType === 'image-with-text' ? ` with text: ${text}` : ''}`;
+      contentStore.store(actualIPFSCid, contentText, {
+        contentType: actualContentType,
+        filename: filename,
+        size: contentBuffer.length,
+        mimeType: actualContentType === 'text' ? 'text/plain' : file?.mimetype,
+        hasText: hasText,
+        hasImage: hasImage,
+        uploadTimestamp: new Date().toISOString()
+      });
+      console.log(`✅ Content stored locally for immediate AI processing`);
     } catch (cidError) {
       console.error('❌ Local CID generation failed:', cidError.message);
       ipfsError = `CID generation failed: ${cidError.message}`;
@@ -476,14 +502,14 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
     let phase2Triggered = false;
     let phase2Status = null;
     
-    if (ipfsSuccess && actualIPFSCid && hederaTransactionHash && phase2Orchestrator) {
+    if (ipfsSuccess && actualIPFSCid && hederaTransactionHash && improvedOrchestrator) {
       try {
-        console.log('🤖 Triggering Phase 2 AI processing...');
+        console.log('🤖 Triggering Improved Phase 2 AI processing with IPFS propagation handling...');
         
-        // Ensure orchestrator is running
-        if (!phase2Orchestrator.isRunning) {
-          console.log('🔄 Starting Phase 2 orchestrator...');
-          await phase2Orchestrator.startRealTimeProcessing();
+        // Ensure improved orchestrator is running
+        if (!improvedOrchestrator.getStatus().isRunning) {
+          console.log('🔄 Starting Improved Phase 2 orchestrator...');
+          await improvedOrchestrator.startRealTimeProcessing();
         }
         
         // Trigger immediate processing of this specific claim
@@ -497,12 +523,12 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
           source: 'API_NOTARIZE'
         };
         
-        // Trigger immediate claim processing
-        await phase2Orchestrator.processClaim(claimData);
+        // Trigger immediate claim processing with improved orchestrator
+        await improvedOrchestrator.processClaim(claimData);
         phase2Triggered = true;
         phase2Status = 'processing_initiated';
         
-        console.log(`✅ Phase 2 processing triggered for CID: ${actualIPFSCid}`);
+        console.log(`✅ Improved Phase 2 processing triggered for CID: ${actualIPFSCid}`);
       } catch (phase2Error) {
         console.log('⚠️ Phase 2 trigger failed:', phase2Error.message);
         phase2Status = `trigger_failed: ${phase2Error.message}`;
@@ -583,6 +609,14 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
         ? (hederaTransactionHash ? `${actualContentType === 'image-with-text' ? 'Image stored in IPFS, text in Hedera message' : `Raw ${actualContentType} content`} notarized! CID: ${actualIPFSCid}` : 'Content stored on IPFS successfully, but Hedera recording failed')
         : 'Content notarization failed',
       
+      // VERIFICATION LINKS - Click these to verify your content
+      verificationLinks: {
+        hederaTransaction: hederaTransactionHash ? `https://hashscan.io/testnet/transaction/${hederaTransactionHash}` : null,
+        hederaAccount: `https://hashscan.io/testnet/account/${accountId}`,
+        ipfsCidAnalyzer: actualIPFSCid ? `https://cid.ipfs.io/#${actualIPFSCid}` : null,
+        directIPFSAccess: actualIPFSCid ? `https://ipfs.filebase.io/ipfs/${actualIPFSCid}` : null,
+      },
+      
       // Enhanced response with internal processing status
       internalProcessing: {
         phase2Triggered: phase2Triggered,
@@ -641,10 +675,15 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
 
 // Phase 2 Main Orchestrator Integration
 let phase2Orchestrator = null;
+let improvedOrchestrator = null;
 
 // Initialize Phase 2 orchestrator if enabled
 if (config.features.phase2Enabled) {
   try {
+    // Initialize improved orchestrator for real-time AI processing
+    improvedOrchestrator = new ImprovedOrchestrator();
+    
+    // Keep main orchestrator for fallback
     phase2Orchestrator = new MainOrchestrator();
     console.log('🤖 Phase 2 Main Orchestrator initialized');
     
@@ -775,6 +814,121 @@ app.get('/api/phase2/claims/:cid', (req, res) => {
     success: true,
     claim
   });
+});
+
+// ========================================
+// IMPROVED ORCHESTRATOR ENDPOINTS (Enhanced AI Processing)
+// ========================================
+
+// Get improved orchestrator status
+app.get('/api/phase2/improved/status', (req, res) => {
+  if (!improvedOrchestrator) {
+    return res.json({
+      success: false,
+      message: 'Improved Phase 2 orchestrator not initialized',
+      status: 'not_available'
+    });
+  }
+
+  const status = improvedOrchestrator.getStatus();
+  res.json({
+    success: true,
+    status: status.isRunning ? 'running' : 'stopped',
+    processedClaimsCount: status.processedClaimsCount,
+    lastProcessedTimestamp: status.lastProcessedTimestamp,
+    retryConfig: status.retryConfig
+  });
+});
+
+// Start improved orchestrator (recommended for real-time AI)
+app.post('/api/phase2/improved/start', async (req, res) => {
+  if (!improvedOrchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Improved Phase 2 orchestrator not initialized'
+    });
+  }
+
+  if (improvedOrchestrator.getStatus().isRunning) {
+    return res.json({
+      success: true,
+      message: 'Improved Phase 2 orchestrator already running'
+    });
+  }
+
+  try {
+    await improvedOrchestrator.startRealTimeProcessing();
+    res.json({
+      success: true,
+      message: 'Improved Phase 2 orchestrator started successfully with IPFS propagation handling'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to start improved Phase 2 orchestrator',
+      error: error.message
+    });
+  }
+});
+
+// Stop improved orchestrator
+app.post('/api/phase2/improved/stop', (req, res) => {
+  if (!improvedOrchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Improved Phase 2 orchestrator not initialized'
+    });
+  }
+
+  improvedOrchestrator.stop();
+  res.json({
+    success: true,
+    message: 'Improved Phase 2 orchestrator stopped'
+  });
+});
+
+// Get processed claims from improved orchestrator
+app.get('/api/phase2/improved/claims', (req, res) => {
+  if (!improvedOrchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Improved Phase 2 orchestrator not initialized'
+    });
+  }
+
+  res.json({
+    success: true,
+    claims: improvedOrchestrator.getProcessedClaims()
+  });
+});
+
+// Manual claim processing with improved orchestrator
+app.post('/api/phase2/improved/process/:cid', async (req, res) => {
+  if (!improvedOrchestrator) {
+    return res.status(400).json({
+      success: false,
+      message: 'Improved Phase 2 orchestrator not initialized'
+    });
+  }
+
+  try {
+    const { cid } = req.params;
+    console.log(`🔧 Manual processing request for CID: ${cid}`);
+    
+    const result = await improvedOrchestrator.processClaimManually(cid);
+    
+    res.json({
+      success: true,
+      message: 'Claim processed successfully with improved orchestrator',
+      claim: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process claim',
+      error: error.message
+    });
+  }
 });
 
 // Start server
