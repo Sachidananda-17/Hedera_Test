@@ -11,6 +11,11 @@ import * as raw from 'multiformats/codecs/raw';
 import dotenv from 'dotenv';
 import path from 'path';
 import fetch from 'node-fetch';
+import { HederaLangchainToolkit, coreQueriesPlugin } from 'hedera-agent-kit';
+import { ChatOpenAI } from '@langchain/openai';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { AgentExecutor, createToolCallingAgent } from 'langchain/agents';
 
 // Load environment variables from config directory
 dotenv.config({ path: path.join(process.cwd(), 'config', '.env') });
@@ -34,6 +39,70 @@ try {
 
 const app = express();
 const PORT = config.server.port;
+
+// Initialize Hedera Agent Kit (LangChain) with OpenAI or Gemini as the LLM
+let agentExecutor = null;
+let activeLlmLabel = null;
+function createLLM() {
+  if (config.ai?.openai?.apiKey) {
+    activeLlmLabel = `openai:${config.ai.openai.model}`;
+    return new ChatOpenAI({
+      apiKey: config.ai.openai.apiKey,
+      model: config.ai.openai.model,
+      temperature: 0.2
+    });
+  }
+  if (config.ai?.gemini?.apiKey) {
+    activeLlmLabel = `gemini:${config.ai.gemini.model}`;
+    return new ChatGoogleGenerativeAI({
+      apiKey: config.ai.gemini.apiKey,
+      model: config.ai.gemini.model,
+      temperature: 0.2
+    });
+  }
+  return null;
+}
+
+async function initializeAgentExecutor() {
+  try {
+    const llm = createLLM();
+    if (!llm) {
+      console.warn('⚠️ No LLM configured for Agent Kit (OpenAI or Gemini)');
+      return;
+    }
+    // Ensure we have at least a read-only Hedera client for query tools
+    let agentClient = hederaClient;
+    if (!agentClient) {
+      console.warn('⚠️ Hedera credentials missing; initializing read-only client for queries');
+      try {
+        agentClient = Client.forTestnet();
+      } catch (e) {
+        console.warn('⚠️ Failed to create read-only Hedera client:', e.message);
+      }
+    }
+
+    const toolkit = new HederaLangchainToolkit({
+      client: agentClient,
+      configuration: {
+        plugins: [coreQueriesPlugin]
+      }
+    });
+    const tools = toolkit.getTools();
+
+    const prompt = ChatPromptTemplate.fromMessages([
+      ['system', 'You are a concise analyst returning clear, structured findings.'],
+      ['placeholder', '{chat_history}'],
+      ['human', '{input}'],
+      ['placeholder', '{agent_scratchpad}']
+    ]);
+
+    const agent = createToolCallingAgent({ llm, tools, prompt });
+    agentExecutor = new AgentExecutor({ agent, tools });
+    console.log(`✅ Hedera Agent Kit executor initialized using ${activeLlmLabel}`);
+  } catch (e) {
+    console.warn('⚠️ Failed to initialize Agent Kit executor:', e.message);
+  }
+}
 
 // Initialize Hedera client
 let hederaClient = null;
@@ -102,6 +171,36 @@ async function generateIPFSCID(content) {
     }
   }
 }
+
+// Helper to build a concise analysis prompt for LLMs
+function buildAnalysisPrompt({ cid, contentType, text, title, tags, accountId, hederaTxId }) {
+  const header = `You are analyzing notarized content in a Hedera + IPFS system.`;
+  const context = [
+    `IPFS CID: ${cid}`,
+    hederaTxId ? `Hedera Tx: ${hederaTxId}` : null,
+    title ? `Title: ${title}` : null,
+    tags ? `Tags: ${tags}` : null,
+    `Content type: ${contentType}`
+  ].filter(Boolean).join('\n');
+
+  const contentSnippet = text ? (text.length > 3000 ? text.slice(0, 3000) + '...' : text) : '(no text available)';
+
+  return [
+    header,
+    context,
+    '',
+    'If text is provided, extract a structured summary:',
+    '- key_claims: concise bullet claims (max 5)',
+    '- entities: important entities mentioned',
+    '- risk_level: low|medium|high with one-line rationale',
+    '- recommended_next_actions: up to 3 bullets',
+    '- sources: 3-5 reputable URLs (include full https:// links) supporting or refuting the claims. If unsure, write "No reliable sources found".',
+    '',
+    'Text to analyze:',
+    contentSnippet
+  ].join('\n');
+}
+
 
 // API Routes
 
@@ -498,40 +597,35 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       }
     }
 
-    // INTERNAL STEP 6: Trigger Phase 2 AI Processing (if successful)
-    let phase2Triggered = false;
-    let phase2Status = null;
-    
-    if (ipfsSuccess && actualIPFSCid && hederaTransactionHash && improvedOrchestrator) {
+    // INTERNAL STEP 6: Run analysis via Hedera Agent Kit (LangChain)
+    let phase2Triggered = false; // not using orchestrator
+    let phase2Status = 'using_hedera_agent_kit';
+    let aiAnalysis = { agentKit: null };
+    if (ipfsSuccess && actualIPFSCid) {
       try {
-        console.log('🤖 Triggering Improved Phase 2 AI processing with IPFS propagation handling...');
-        
-        // Ensure improved orchestrator is running
-        if (!improvedOrchestrator.getStatus().isRunning) {
-          console.log('🔄 Starting Improved Phase 2 orchestrator...');
-          await improvedOrchestrator.startRealTimeProcessing();
+        if (!agentExecutor) {
+          await initializeAgentExecutor();
         }
-        
-        // Trigger immediate processing of this specific claim
-        const claimData = {
-          cid: actualIPFSCid,
-          transactionId: hederaTransactionHash,
-          accountId: accountId,
-          contentType: actualContentType,
-          timestamp: new Date().toISOString(),
-          priority: 'HIGH', // New claims get high priority
-          source: 'API_NOTARIZE'
-        };
-        
-        // Trigger immediate claim processing with improved orchestrator
-        await improvedOrchestrator.processClaim(claimData);
-        phase2Triggered = true;
-        phase2Status = 'processing_initiated';
-        
-        console.log(`✅ Improved Phase 2 processing triggered for CID: ${actualIPFSCid}`);
-      } catch (phase2Error) {
-        console.log('⚠️ Phase 2 trigger failed:', phase2Error.message);
-        phase2Status = `trigger_failed: ${phase2Error.message}`;
+        if (agentExecutor) {
+          console.log('🤖 Running analysis with Hedera Agent Kit executor...');
+          const prompt = buildAnalysisPrompt({
+            cid: actualIPFSCid,
+            contentType: actualContentType,
+            text: hasText ? text : undefined,
+            title,
+            tags,
+            accountId,
+            hederaTxId: hederaTransactionHash
+          });
+          const result = await agentExecutor.invoke({ input: prompt });
+          aiAnalysis = { agentKit: { model: activeLlmLabel, output: result } };
+          console.log('✅ Agent Kit analysis completed');
+        } else {
+          aiAnalysis = { error: 'agent_executor_unavailable' };
+        }
+      } catch (llmError) {
+        console.log('⚠️ Agent Kit analysis failed:', llmError.message);
+        aiAnalysis = { error: llmError.message };
       }
     }
     
@@ -547,13 +641,14 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
           timeout: 5000 
         }).then(() => true).catch(() => false);
         
+        const ipfsRace = await Promise.race([
+          ipfsCheckPromise,
+          new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))
+        ]);
         verificationStatus = {
-          ipfsAccessible: await Promise.race([
-            ipfsCheckPromise,
-            new Promise(resolve => setTimeout(() => resolve('timeout'), 3000))
-          ]),
+          ipfsAccessible: ipfsRace === true,
           hederaRecorded: !!hederaTransactionHash,
-          contentIntegrity: true, // CID is deterministic
+          contentIntegrity: true,
           timestamp: new Date().toISOString()
         };
         
@@ -622,9 +717,10 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
         phase2Triggered: phase2Triggered,
         phase2Status: phase2Status,
         verificationStatus: verificationStatus,
+        aiAnalysis,
         proofPackage: proofPackage,
         nextSteps: {
-          aiAnalysis: phase2Triggered ? 'Processing started' : 'Not triggered',
+          aiAnalysis: aiAnalysis?.agentKit || aiAnalysis?.openai || aiAnalysis?.gemini ? 'Completed' : 'Unavailable',
           verification: verificationStatus.ipfsAccessible ? 'Content verified accessible' : 'Verification pending',
           monitoring: 'Real-time monitoring active'
         }
@@ -942,6 +1038,8 @@ app.listen(PORT, () => {
   console.log(`🔄 Auto-processing: ${config.agents.autoStartPhase2 ? 'Enabled' : 'Manual'}`);
   console.log(`🌐 CORS origin: ${config.server.corsOrigin}`);
   console.log(`🏗️ Environment: ${config.server.nodeEnv}`);
+  // Fire up Agent Kit on startup so first request has executor ready
+  initializeAgentExecutor().catch(() => {});
   
   if (phase2Orchestrator && !config.agents.autoStartPhase2) {
     console.log('\n💡 Phase 2 Manual Controls:');
