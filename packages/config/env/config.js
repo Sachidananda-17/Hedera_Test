@@ -56,7 +56,16 @@ export const config = {
       claimParser: 'microsoft/MiniLM-L6-v2'
     },
     enableSemanticAnalysis: process.env.ENABLE_SEMANTIC_ANALYSIS === 'true',
-    enableAdvancedParsing: process.env.ENABLE_ADVANCED_PARSING === 'true'
+    enableAdvancedParsing: process.env.ENABLE_ADVANCED_PARSING === 'true',
+    // New LLM configurations
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    },
+    gemini: {
+      apiKey: process.env.GEMINI_API_KEY,
+      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+    }
   },
 
   // Agent Configuration

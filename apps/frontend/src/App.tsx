@@ -11,7 +11,7 @@ import {
   AccountBalanceQuery,
   AccountId,
 } from "@hashgraph/sdk";
-import NotarizationForm from "./components/NotarizationForm";
+
 
 // MUI components
 import {
@@ -32,6 +32,7 @@ import CurrencyBitcoinIcon from "@mui/icons-material/CurrencyBitcoin";
 import SecurityIcon from "@mui/icons-material/Security";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import ScienceIcon from "@mui/icons-material/Science";
+import PerplexityChat from "./components/PerplexityChat";
 
 // 👇 replace with your WalletConnect Project ID
 const projectId = "00a80c9d1c9b960c3d5dfdb56cd90d90";
@@ -102,21 +103,17 @@ export default function App() {
   }, []);
 
   return (
-    <Box sx={{ minHeight: "100vh", background: "linear-gradient(135deg, #0f172a 0%, #581c87 50%, #0f172a 100%)", width: "100%" }}>
+    <Box sx={{ minHeight: "100vh", background: "linear-gradient(180deg, #0a0a0a 0%, #141414 50%, #0a0a0a 100%)", width: "100%" }}>
       {/* Header - Full Width */}
       <AppBar position="static" sx={{ 
-        background: "rgba(255, 255, 255, 0.1)", 
+        background: "rgba(20, 20, 20, 0.9)", 
         backdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255, 255, 255, 0.2)"
+        borderBottom: "1px solid rgba(255, 255, 255, 0.06)"
       }} elevation={0}>
         <Toolbar sx={{ maxWidth: "none", px: { xs: 2, md: 4 } }}>
-          <Avatar
-            src="https://upload.wikimedia.org/wikipedia/commons/5/5a/Hedera-logo.png"
-            sx={{ mr: 2, width: 40, height: 40 }}
-          />
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6" sx={{ color: "rgba(255, 255, 255, 0.95)", fontWeight: "bold" }}>
-              Hedera AI Notarization Platform
+            Altheia
             </Typography>
             <Typography variant="body2" sx={{ color: "rgba(255, 255, 255, 0.7)" }}>
               Decentralized Content Verification with AI Analysis
@@ -125,9 +122,9 @@ export default function App() {
           <Chip 
             label="Testnet" 
             sx={{ 
-              backgroundColor: "rgba(251, 191, 36, 0.2)", 
-              color: "#fbbf24",
-              border: "1px solid rgba(251, 191, 36, 0.3)",
+              backgroundColor: "rgba(255,255,255,0.06)", 
+              color: "#e5e5e5",
+              border: "1px solid rgba(255,255,255,0.12)",
               fontWeight: "bold"
             }} 
             size="small" 
@@ -141,12 +138,12 @@ export default function App() {
         {connected ? (
           <>
             <Grid container spacing={3} sx={{ maxWidth: "6xl", mx: "auto", mb: 4 }}>
-              {/* Wallet Connected - ChatGPT Style */}
+              {/* Wallet Connected */}
               <Grid item xs={12} md={6} {...({} as any)}>
                 <Card sx={{ 
-                  background: "rgba(34, 197, 94, 0.1)", 
+                  background: "rgba(20,20,20,0.8)", 
                   backdropFilter: "blur(20px)",
-                  border: "1px solid rgba(34, 197, 94, 0.3)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
                   borderRadius: "16px",
                   height: "100%"
                 }}>
@@ -158,7 +155,7 @@ export default function App() {
                     >
                       <Box mb={{ xs: 2, sm: 0 }}>
                         <Box display="flex" alignItems="center" mb={2}>
-                          <CheckCircleIcon sx={{ mr: 1.5, color: "#22c55e" }} />
+                          <CheckCircleIcon sx={{ mr: 1.5, color: "#e5e5e5" }} />
                           <Typography variant="subtitle1" sx={{ color: "rgba(255, 255, 255, 0.95)", fontWeight: "bold" }}>
                             Wallet Connected
                           </Typography>
@@ -168,7 +165,7 @@ export default function App() {
                           sx={{ 
                             fontFamily: "monospace", 
                             wordBreak: "break-word",
-                            color: "#22c55e",
+                            color: "#bdbdbd",
                             fontSize: "0.875rem"
                           }}
                         >
@@ -177,10 +174,10 @@ export default function App() {
                       </Box>
                       <Avatar
                         sx={{ 
-                          bgcolor: "rgba(34, 197, 94, 0.2)", 
-                          color: "#22c55e", 
+                          bgcolor: "rgba(255,255,255,0.06)", 
+                          color: "#e5e5e5", 
                           alignSelf: "center",
-                          border: "1px solid rgba(34, 197, 94, 0.3)"
+                          border: "1px solid rgba(255, 255, 255, 0.12)"
                         }}
                       >
                         <AccountBalanceWalletIcon />
@@ -190,12 +187,12 @@ export default function App() {
                 </Card>
               </Grid>
 
-              {/* Balance - ChatGPT Style */}
+              {/* Balance */}
               <Grid item xs={12} md={6} {...({} as any)}>
                 <Card sx={{ 
-                  background: "rgba(99, 102, 241, 0.1)", 
+                  background: "rgba(20,20,20,0.8)", 
                   backdropFilter: "blur(20px)",
-                  border: "1px solid rgba(99, 102, 241, 0.3)",
+                  border: "1px solid rgba(255, 255, 255, 0.06)",
                   borderRadius: "16px",
                   height: "100%"
                 }}>
@@ -207,7 +204,7 @@ export default function App() {
                     >
                       <Box mb={{ xs: 2, sm: 0 }}>
                         <Box display="flex" alignItems="center" mb={2}>
-                          <CurrencyBitcoinIcon sx={{ mr: 1.5, color: "#6366f1" }} />
+                          <CurrencyBitcoinIcon sx={{ mr: 1.5, color: "#e5e5e5" }} />
                           <Typography variant="subtitle1" sx={{ color: "rgba(255, 255, 255, 0.95)", fontWeight: "bold" }}>
                             HBAR Balance
                           </Typography>
@@ -217,7 +214,7 @@ export default function App() {
                           sx={{ 
                             fontFamily: "monospace", 
                             wordBreak: "break-word",
-                            color: "#6366f1",
+                            color: "#bdbdbd",
                             fontSize: "0.875rem"
                           }}
                         >
@@ -226,10 +223,10 @@ export default function App() {
                       </Box>
                       <Avatar
                         sx={{ 
-                          bgcolor: "rgba(99, 102, 241, 0.2)", 
-                          color: "#6366f1", 
+                          bgcolor: "rgba(255,255,255,0.06)", 
+                          color: "#e5e5e5", 
                           alignSelf: "center",
-                          border: "1px solid rgba(99, 102, 241, 0.3)"
+                          border: "1px solid rgba(255, 255, 255, 0.12)"
                         }}
                       >
                         <CurrencyBitcoinIcon />
@@ -240,12 +237,10 @@ export default function App() {
               </Grid>
             </Grid>
 
-            {/* Notarization dialog - No extra wrapper needed */}
-            {(window as any).connectedAccountId = accountId}
-            <NotarizationForm />
+            <PerplexityChat accountId={accountId} />
           </>
         ) : (
-          /* Loading State - ChatGPT Style */
+          /* Loading State */
           <Box sx={{ 
             maxWidth: "4xl", 
             mx: "auto", 
@@ -253,9 +248,9 @@ export default function App() {
             mt: { xs: 4, md: 8 }
           }}>
             <Card sx={{ 
-              background: "rgba(255, 255, 255, 0.1)", 
+              background: "rgba(20,20,20,0.85)", 
               backdropFilter: "blur(20px)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
               borderRadius: "24px",
               p: { xs: 4, md: 6 }
             }}>
@@ -263,7 +258,7 @@ export default function App() {
                 <CircularProgress 
                   size={60} 
                   sx={{ 
-                    color: "#fbbf24",
+                    color: "#e5e5e5",
                     mb: 3,
                     "& .MuiCircularProgress-circle": {
                       strokeLinecap: "round"
@@ -273,11 +268,7 @@ export default function App() {
                 <Typography variant="h4" sx={{ 
                   color: "rgba(255, 255, 255, 0.95)", 
                   fontWeight: "bold",
-                  mb: 2,
-                  background: "linear-gradient(135deg, #60a5fa 0%, #a855f7 50%, #ec4899 100%)",
-                  backgroundClip: "text",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent"
+                  mb: 2
                 }}>
                   Connecting to HashPack Wallet...
                 </Typography>
@@ -292,14 +283,14 @@ export default function App() {
                 <Grid container spacing={4} mt={2}>
                   <Grid item xs={12} sm={4} sx={{ textAlign: "center" }} {...({} as any)}>
                     <Box sx={{
-                      background: "rgba(34, 197, 94, 0.1)",
+                      background: "rgba(255,255,255,0.06)",
                       backdropFilter: "blur(10px)",
-                      border: "1px solid rgba(34, 197, 94, 0.3)",
+                      border: "1px solid rgba(255,255,255,0.12)",
                       borderRadius: "16px",
                       p: 3,
                       height: "100%"
                     }}>
-                      <SecurityIcon sx={{ fontSize: 48, color: "#22c55e", mb: 2 }} />
+                      <SecurityIcon sx={{ fontSize: 48, color: "#e5e5e5", mb: 2 }} />
                       <Typography variant="h6" sx={{ 
                         fontWeight: "bold", 
                         color: "rgba(255, 255, 255, 0.95)",
@@ -315,14 +306,14 @@ export default function App() {
 
                   <Grid item xs={12} sm={4} sx={{ textAlign: "center" }} {...({} as any)}>
                     <Box sx={{
-                      background: "rgba(99, 102, 241, 0.1)",
+                      background: "rgba(255,255,255,0.06)",
                       backdropFilter: "blur(10px)",
-                      border: "1px solid rgba(99, 102, 241, 0.3)",
+                      border: "1px solid rgba(255,255,255,0.12)",
                       borderRadius: "16px",
                       p: 3,
                       height: "100%"
                     }}>
-                      <FlashOnIcon sx={{ fontSize: 48, color: "#6366f1", mb: 2 }} />
+                      <FlashOnIcon sx={{ fontSize: 48, color: "#e5e5e5", mb: 2 }} />
                       <Typography variant="h6" sx={{ 
                         fontWeight: "bold", 
                         color: "rgba(255, 255, 255, 0.95)",
@@ -338,14 +329,14 @@ export default function App() {
 
                   <Grid item xs={12} sm={4} sx={{ textAlign: "center" }} {...({} as any)}>
                     <Box sx={{
-                      background: "rgba(168, 85, 247, 0.1)",
+                      background: "rgba(255,255,255,0.06)",
                       backdropFilter: "blur(10px)",
-                      border: "1px solid rgba(168, 85, 247, 0.3)",
+                      border: "1px solid rgba(255,255,255,0.12)",
                       borderRadius: "16px",
                       p: 3,
                       height: "100%"
                     }}>
-                      <ScienceIcon sx={{ fontSize: 48, color: "#a855f7", mb: 2 }} />
+                      <ScienceIcon sx={{ fontSize: 48, color: "#e5e5e5", mb: 2 }} />
                       <Typography variant="h6" sx={{ 
                         fontWeight: "bold", 
                         color: "rgba(255, 255, 255, 0.95)",
