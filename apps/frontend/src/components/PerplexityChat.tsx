@@ -611,7 +611,7 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
           <Box mb={2.5}>
             <ShimmerText variant="subtitle1" fontWeight="bold">Risk Assessment</ShimmerText>
             <Box display="flex" alignItems="center" gap={1} mt={1}>
-              {response.riskLevel && (
+              {/* {response.riskLevel && (
                 <Chip 
                   label={`Risk: ${response.riskLevel}`}
                   size="small"
@@ -620,9 +620,9 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
                     background: response.riskLevel === 'high' ? '#ff6b6b' : response.riskLevel === 'medium' ? '#ffa502' : '#00ff88'
                   }}
                 />
-              )}
-              {response.riskRationale && (
-                <Typography variant="body2" sx={{ color: '#e0e0e0' }}>{response.riskRationale}</Typography>
+              )} */}
+              {response.riskLevel && (
+                <Typography variant="body2" sx={{ color: '#e0e0e0' }}>{response.riskLevel}</Typography>
               )}
             </Box>
           </Box>

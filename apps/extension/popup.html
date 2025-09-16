@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Hedera Notary</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <div id="app" class="chat">
+      <div class="chat-header">
+        <div class="title">Hedera Notary</div>
+        <div class="status"><button id="connect" class="connect">Connect HashPack</button> <button id="switch" class="connect">Switch</button> <span id="status">Detecting wallet…</span></div>
+      </div>
+      <div id="messages" class="messages"></div>
+      <div id="pairing" class="pair" style="display:none">
+        <div class="meta">WalletConnect URI</div>
+        <div id="wcUri" class="url"></div>
+        <div class="actions">
+          <button id="copyUri" class="connect">Copy</button>
+        </div>
+      </div>
+      <div class="composer">
+        <textarea id="text" rows="2" placeholder="Ask or paste text to notarize…"></textarea>
+        <button id="submit">Send</button>
+      </div>
+    </div>
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>
+
+

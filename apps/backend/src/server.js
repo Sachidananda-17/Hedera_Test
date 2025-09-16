@@ -127,7 +127,26 @@ try {
 
 // Middleware
 app.use(cors({
-  origin: config.server.corsOrigin
+  origin: (origin, callback) => {
+    // Allow dev frontend and API base origin
+    const allowed = new Set([
+      config.server.corsOrigin,
+      `http://localhost:${PORT}`
+    ]);
+
+    // Permit Chrome extensions
+    if (origin && (origin.startsWith('chrome-extension://') || allowed.has(origin))) {
+      return callback(null, true);
+    }
+
+    // In non-browser or same-origin requests, no origin will be present
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

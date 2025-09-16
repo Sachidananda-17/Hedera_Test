@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Hedera Notary Options</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+      h1 { font-size: 18px; }
+      .row { display: grid; grid-template-columns: 180px 1fr; gap: 8px; align-items: center; margin: 12px 0; }
+      input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; }
+      button { padding: 10px 14px; border: 0; border-radius: 6px; background: #3b82f6; color: #fff; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <h1>Hedera Notary Settings</h1>
+    <div class="row">
+      <label for="apiUrl">API Base URL</label>
+      <input id="apiUrl" placeholder="http://localhost:3001" />
+    </div>
+    <div class="row">
+      <label for="accountId">Hedera Account ID</label>
+      <input id="accountId" placeholder="0.0.xxxxx" />
+    </div>
+    <div class="row">
+      <label for="wcProjectId">WalletConnect Project ID</label>
+      <input id="wcProjectId" placeholder="wc_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+    </div>
+    <div class="row">
+      <div></div>
+      <button id="save">Save</button>
+    </div>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>
+
+
