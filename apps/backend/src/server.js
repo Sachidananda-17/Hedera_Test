@@ -11,6 +11,7 @@ import * as raw from 'multiformats/codecs/raw';
 import dotenv from 'dotenv';
 import path from 'path';
 import fetch from 'node-fetch';
+import { analyzeImageWithClaim } from './imageAnalysis.js';
 import { HederaLangchainToolkit, coreQueriesPlugin } from 'hedera-agent-kit';
 import { ChatOpenAI } from '@langchain/openai';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
@@ -192,7 +193,7 @@ async function generateIPFSCID(content) {
 }
 
 // Helper to build a concise analysis prompt for LLMs
-function buildAnalysisPrompt({ cid, contentType, text, title, tags, accountId, hederaTxId }) {
+function buildAnalysisPrompt({ cid, contentType, text, title, tags, accountId, hederaTxId, imageContext, imageLabels, ipfsGatewayUrl, userPrompt }) {
   const header = `You are analyzing notarized content in a Hedera + IPFS system.`;
   const context = [
     `IPFS CID: ${cid}`,
@@ -202,11 +203,22 @@ function buildAnalysisPrompt({ cid, contentType, text, title, tags, accountId, h
     `Content type: ${contentType}`
   ].filter(Boolean).join('\n');
 
-  const contentSnippet = text ? (text.length > 3000 ? text.slice(0, 3000) + '...' : text) : '(no text available)';
+  // Prefer explicit text; otherwise, include image-derived context if available
+  const base = text && text.trim().length ? text : (imageContext && imageContext.trim().length ? imageContext : '');
+  const contentSnippet = base ? (base.length > 3000 ? base.slice(0, 3000) + '...' : base) : '(no content available)';
+
+  const imageExtras = (contentType?.startsWith('image')) ? [
+    '',
+    'Image context:',
+    imageLabels && imageLabels.length ? `- Labels: ${imageLabels.slice(0, 5).join(', ')}` : null,
+    ipfsGatewayUrl ? `- IPFS gateway: ${ipfsGatewayUrl}` : null,
+  ].filter(Boolean).join('\n') : '';
 
   return [
     header,
     context,
+    userPrompt && userPrompt.trim() ? `\nUser instructions: ${userPrompt.trim()}` : null,
+    imageExtras,
     '',
     'If text is provided, extract a structured summary:',
     '- key_claims: concise bullet claims (max 5)',
@@ -216,6 +228,78 @@ function buildAnalysisPrompt({ cid, contentType, text, title, tags, accountId, h
     '- sources: 3-5 reputable URLs (include full https:// links) supporting or refuting the claims. If unsure, write "No reliable sources found".',
     '',
     'Text to analyze:',
+    contentSnippet
+  ].join('\n');
+}
+
+// Helper to build a rigorous fact-checking prompt
+function buildFactCheckPrompt({ cid, contentType, text, title, tags, accountId, hederaTxId, imageContext, imageLabels, ipfsGatewayUrl, userPrompt }) {
+  const header = `You are a rigorous fact-checker. Verify the claims in the provided content against reputable sources. If any part is false or misleading, correct it with precise facts.`;
+  const context = [
+    `IPFS CID: ${cid}`,
+    hederaTxId ? `Hedera Tx: ${hederaTxId}` : null,
+    title ? `Title: ${title}` : null,
+    tags ? `Tags: ${tags}` : null,
+    `Content type: ${contentType}`
+  ].filter(Boolean).join('\n');
+
+  // Prefer explicit text; otherwise, include image-derived context if available
+  const base = text && text.trim().length ? text : (imageContext && imageContext.trim().length ? imageContext : '');
+  const contentSnippet = base ? (base.length > 3000 ? base.slice(0, 3000) + '...' : base) : '(no content available)';
+
+  const imageGuidance = (contentType?.startsWith('image')) ? [
+    '',
+    'Image context:',
+    imageLabels && imageLabels.length ? `- Labels: ${imageLabels.slice(0, 5).join(', ')}` : null,
+    ipfsGatewayUrl ? `- IPFS gateway: ${ipfsGatewayUrl}` : null,
+    '',
+    'Instructions:',
+    '- Treat the image verification report below as the textual description of the image.',
+    '- If user-provided text exists, treat it as the primary claim to check.',
+    '- If the report indicates related sources or matches, use them to assess the claim.',
+    '- If evidence is insufficient, state exactly what is missing and what to collect next (be specific).'
+  ].filter(Boolean).join('\n') : '';
+
+  return [
+    header,
+    context,
+    userPrompt && userPrompt.trim() ? `\nUser instructions: ${userPrompt.trim()}` : null,
+    imageGuidance,
+    '',
+    'Return the following format:',
+    'Verdict: <True|False|Mixed>',
+    '',
+    'Answer:',
+    '<1 short paragraph that directly answers in plain English>',
+    '',
+    'Detailed Summary:',
+    '<2-4 short paragraphs that: (a) explain what is true/false and why, (b) give essential context, (c) include key numbers/dates and jurisdictions, and (d) reference the cited evidence. Keep it concise and readable—no fluff.>',
+    '',
+    'Key facts:',
+    '- <specific fact 1 with a number/date>',
+    '- <specific fact 2>',
+    '- <specific fact 3>',
+    '- <specific fact 4 (optional)>',
+    '- <specific fact 5 (optional)>',
+    '',
+    'Nuances and caveats:',
+    '- <brief nuance/caveat 1>',
+    '- <brief nuance/caveat 2>',
+    '- <brief nuance/caveat 3 (optional)>',
+    '',
+    'Sources:',
+    '- https://... (primary/official where possible)',
+    '- https://...',
+    '- https://...',
+    '- https://... (optional)',
+    '- https://... (optional)',
+    '',
+    'Guidelines:',
+    '- Cite 3-5 reputable sources with full https:// URLs. Prefer primary sources (.gov, .edu, official reports, peer-reviewed research, company docs, major reputable outlets).',
+    '- Be precise with dates, figures, and jurisdictions. Avoid speculation.',
+    '- If high-confidence sources are unavailable, write "No reliable sources found".',
+    '',
+    'Text (or image verification report) to fact-check:',
     contentSnippet
   ].join('\n');
 }
@@ -423,7 +507,7 @@ app.get('/api/debug/verify-cid/:cid', async (req, res) => {
 // Main notarization endpoint
 app.post('/api/notarize', upload.single('file'), async (req, res) => {
   try {
-    const { accountId, contentType, text, title = '', tags = '' } = req.body;
+    const { accountId, contentType, text, title = '', tags = '', mode = 'analysis', prompt: userPrompt = '' } = req.body;
     const file = req.file;
 
     // Validate required fields
@@ -616,7 +700,19 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       }
     }
 
-    // INTERNAL STEP 6: Run analysis via Hedera Agent Kit (LangChain)
+    // INTERNAL STEP 6: If image-with-text, run JS Vision image analysis (best-effort)
+    let imageAnalysis = null;
+    if ((actualContentType === 'image-with-text' || actualContentType === 'image') && hasImage) {
+      try {
+        console.log('🧠 Running JS Vision image analysis...');
+        imageAnalysis = await analyzeImageWithClaim(contentBuffer, hasText ? text : '');
+      } catch (err) {
+        console.warn('⚠️ JS image analysis failed:', err.message);
+        imageAnalysis = { success: false, error: err.message };
+      }
+    }
+
+    // INTERNAL STEP 7: Run analysis via Hedera Agent Kit (LangChain)
     let phase2Triggered = false; // not using orchestrator
     let phase2Status = 'using_hedera_agent_kit';
     let aiAnalysis = { agentKit: null };
@@ -627,17 +723,35 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
         }
         if (agentExecutor) {
           console.log('🤖 Running analysis with Hedera Agent Kit executor...');
-          const prompt = buildAnalysisPrompt({
-            cid: actualIPFSCid,
-            contentType: actualContentType,
-            text: hasText ? text : undefined,
-            title,
-            tags,
-            accountId,
-            hederaTxId: hederaTransactionHash
-          });
+          const prompt = (mode === 'fact_check')
+            ? buildFactCheckPrompt({
+                cid: actualIPFSCid,
+                contentType: actualContentType,
+                text: hasText ? text : undefined,
+                title,
+                tags,
+                accountId,
+                hederaTxId: hederaTransactionHash,
+                imageContext: imageAnalysis?.summary,
+                imageLabels: imageAnalysis?.best_guess_labels,
+                ipfsGatewayUrl: `${process.env.IPFS_GATEWAY_URL || 'https://ipfs.filebase.io/ipfs/'}${actualIPFSCid}`,
+                userPrompt
+              })
+            : buildAnalysisPrompt({
+                cid: actualIPFSCid,
+                contentType: actualContentType,
+                text: hasText ? text : undefined,
+                title,
+                tags,
+                accountId,
+                hederaTxId: hederaTransactionHash,
+                imageContext: imageAnalysis?.summary,
+                imageLabels: imageAnalysis?.best_guess_labels,
+                ipfsGatewayUrl: `${process.env.IPFS_GATEWAY_URL || 'https://ipfs.filebase.io/ipfs/'}${actualIPFSCid}`,
+                userPrompt
+              });
           const result = await agentExecutor.invoke({ input: prompt });
-          aiAnalysis = { agentKit: { model: activeLlmLabel, output: result } };
+          aiAnalysis = { agentKit: { model: activeLlmLabel, mode, output: result } };
           console.log('✅ Agent Kit analysis completed');
         } else {
           aiAnalysis = { error: 'agent_executor_unavailable' };
@@ -648,7 +762,7 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       }
     }
     
-    // INTERNAL STEP 7: Real-time Verification Check
+    // INTERNAL STEP 8: Real-time Verification Check
     let verificationStatus = {};
     if (ipfsSuccess && actualIPFSCid) {
       try {
@@ -678,7 +792,7 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       }
     }
     
-    // INTERNAL STEP 8: Generate comprehensive proof package
+    // INTERNAL STEP 9: Generate comprehensive proof package
     const proofPackage = {
       notarizationId: `${accountId}_${Date.now()}`,
       contentFingerprint: actualIPFSCid,
@@ -736,6 +850,7 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
         phase2Triggered: phase2Triggered,
         phase2Status: phase2Status,
         verificationStatus: verificationStatus,
+        imageAnalysis,
         aiAnalysis,
         proofPackage: proofPackage,
         nextSteps: {

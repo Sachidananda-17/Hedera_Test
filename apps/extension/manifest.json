@@ -10,13 +10,15 @@
   "permissions": [
     "storage",
     "contextMenus",
+    "tabs",
     "activeTab",
     "scripting",
     "notifications",
     "management"
   ],
   "host_permissions": [
-    "http://localhost:3001/*"
+    "http://localhost:3001/*",
+    "<all_urls>"
   ],
   "background": {
     "service_worker": "background.js",

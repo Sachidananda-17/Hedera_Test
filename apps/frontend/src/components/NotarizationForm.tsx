@@ -138,6 +138,10 @@ export default function NotarizationForm() {
       if (file) {
         formData.append('contentType', 'image');
         formData.append('file', file);
+        // If user provided text alongside image, include it so backend treats as image-with-text
+        if (text && text.trim()) {
+          formData.append('text', text);
+        }
         formData.append('title', 'Uploaded Document');
         formData.append('tags', 'document,notarization');
       } else {
@@ -155,10 +159,13 @@ export default function NotarizationForm() {
         setProgress(progress);
       }, 400);
 
-      // Call the backend API directly
+      // Call the backend API directly (request fact-check mode for human-style output)
       const response = await fetch('http://localhost:3001/api/notarize', {
         method: 'POST',
-        body: formData,
+        body: (() => {
+          formData.append('mode', 'fact_check');
+          return formData;
+        })(),
       });
 
       clearInterval(progressInterval);
@@ -514,6 +521,50 @@ export default function NotarizationForm() {
                               <h3 className="text-xl font-bold text-blue-400 mb-3">
                                 <TypewriterText text="🤖 AI Processing Analysis" speed={50} delay={0} />
                               </h3>
+                              {result.internalProcessing?.imageAnalysis && (
+                                <motion.div 
+                                  className="bg-white/10 rounded-xl p-4 border border-white/20 mb-4"
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: 0.8, duration: 0.6 }}
+                                >
+                                  <h4 className="font-semibold text-white/90 mb-2">🧠 Image Fact-Check</h4>
+                                  {result.internalProcessing.imageAnalysis.summary && (
+                                    <div className="text-white/80 whitespace-pre-wrap text-sm mb-3">
+                                      {result.internalProcessing.imageAnalysis.summary}
+                                    </div>
+                                  )}
+                                  {Array.isArray(result.internalProcessing.imageAnalysis.best_guess_labels) && result.internalProcessing.imageAnalysis.best_guess_labels.length > 0 && (
+                                    <div className="mb-2">
+                                      <div className="text-white/70 text-sm mb-1">Labels:</div>
+                                      <div className="flex flex-wrap gap-2">
+                                        {result.internalProcessing.imageAnalysis.best_guess_labels.map((lbl: string, idx: number) => (
+                                          <span key={idx} className="px-2 py-1 bg-white/10 text-white/80 text-xs rounded-md border border-white/20">{lbl}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {Array.isArray(result.internalProcessing.imageAnalysis.articles) && result.internalProcessing.imageAnalysis.articles.length > 0 && (
+                                    <div className="mt-2">
+                                      <div className="text-white/70 text-sm mb-2">Sources:</div>
+                                      <div className="space-y-2">
+                                        {result.internalProcessing.imageAnalysis.articles.slice(0, 5).map((a: any, i: number) => (
+                                          <div key={i} className="bg-white/5 p-3 rounded-lg border border-white/10">
+                                            <a href={a.url} target="_blank" rel="noopener noreferrer" className="text-blue-300 hover:text-blue-200 text-sm break-all">
+                                              {a.url}
+                                            </a>
+                                            {a.ai_summary && (
+                                              <div className="text-white/70 text-xs mt-1">
+                                                {a.ai_summary}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </motion.div>
+                              )}
                               
                               {/* Processing Steps */}
                               {result.debug?.internalStepsCompleted && (

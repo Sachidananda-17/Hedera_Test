@@ -5,7 +5,6 @@ import {
   TextField,
   IconButton,
   Typography,
-  Paper,
   Chip,
   Card,
   CardContent,
@@ -18,14 +17,8 @@ import {
 import {
   Send as SendIcon,
   Search as SearchIcon,
-  CheckCircle as CheckIcon,
-  Cancel as CancelIcon,
-  Warning as WarningIcon,
-  Info as InfoIcon,
   Launch as LaunchIcon,
-  Psychology as BrainIcon,
   AutoAwesome as AiIcon,
-  ElectricBolt as BoltIcon,
 } from '@mui/icons-material';
 import { keyframes, styled } from '@mui/system';
 
@@ -140,12 +133,20 @@ interface FactCheckResult {
       ipfsAccessible?: boolean;
       hederaRecorded?: boolean;
     };
+    imageAnalysis?: {
+      success?: boolean;
+      found?: boolean;
+      summary?: string;
+      best_guess_labels?: string[];
+      articles?: Array<{ url: string; ai_summary?: string; content?: string; matches_count?: number }>;
+    };
   };
 }
 
 const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FactCheckResult[]>([]);
+  const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentTyping, setCurrentTyping] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -173,26 +174,7 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
     return `0 0 20px ${color}40, 0 0 40px ${color}20`;
   };
 
-  const getVerdictIcon = (verdict: string) => {
-    switch (verdict) {
-      case 'TRUE': return <CheckIcon />;
-      case 'FALSE': return <CancelIcon />;
-      case 'PARTIALLY_TRUE': return <WarningIcon />;
-      case 'MISLEADING': return <WarningIcon />;
-      case 'UNVERIFIABLE': return <InfoIcon />;
-      case 'NEEDS_CONTEXT': return <InfoIcon />;
-      default: return <InfoIcon />;
-    }
-  };
-
-  const getModelIcon = (model: string) => {
-    switch (model) {
-      case 'GEMINI': return '🔮';
-      case 'OPENAI_GPT4': return '🧠';
-      case 'PERPLEXITY': return '🔍';
-      default: return '🤖';
-    }
-  };
+  // Icons and model badges not used in current UI; keep helpers minimal
 
   // Heuristic parser to convert markdown-ish analysis into structured data
   const parseStructuredAnalysis = (text: string) => {
@@ -253,9 +235,67 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
     return result;
   };
 
+  // Parser for fact-check specific output with sections: Verdict, Answer, Key facts, Sources
+  const parseFactCheckOutput = (text: string) => {
+    const output = { verdict: '', answer: '', detailed: '', keyFacts: [] as string[], urls: [] as string[] };
+    if (!text) return output;
+
+    const lines = text.split(/\r?\n/);
+    // Verdict
+    const verdictLine = lines.find(l => /^\s*verdict\s*:/i.test(l));
+    if (verdictLine) {
+      const v = verdictLine.split(':')[1]?.trim() || '';
+      output.verdict = v;
+    }
+
+    // Detailed Summary block (preferred)
+    const detailedIdx = lines.findIndex(l => /^\s*(detailed\s*summary|summary)\s*:/i.test(l));
+    if (detailedIdx >= 0) {
+      let i = detailedIdx + 1;
+      const detailedLines: string[] = [];
+      while (i < lines.length && !/^\s*(answer|key\s*facts|nuances|sources)\s*:/i.test(lines[i])) {
+        const line = lines[i].replace(/^\s*[>-]\s*/, '').trim();
+        if (line) detailedLines.push(line);
+        i++;
+      }
+      output.detailed = detailedLines.join(' ');
+    }
+
+    // Answer block (fallback/secondary)
+    const answerStartIdx = lines.findIndex(l => /^\s*answer\s*:/i.test(l));
+    if (answerStartIdx >= 0) {
+      let i = answerStartIdx + 1;
+      const answerLines: string[] = [];
+      while (i < lines.length && !/^\s*(detailed\s*summary|summary|key\s*facts|nuances|sources)\s*:/i.test(lines[i])) {
+        const line = lines[i].replace(/^\s*[>-]\s*/, '').trim();
+        if (line) answerLines.push(line);
+        i++;
+      }
+      output.answer = answerLines.join(' ');
+    }
+
+    // Key facts bullets
+    const keyFactsIdx = lines.findIndex(l => /^\s*key\s*facts\s*:/i.test(l));
+    if (keyFactsIdx >= 0) {
+      let i = keyFactsIdx + 1;
+      while (i < lines.length && !/^\s*(nuances|sources)\s*:/i.test(lines[i])) {
+        const m = lines[i].match(/^\s*[-*]\s+(.*)$/);
+        if (m && m[1]) output.keyFacts.push(m[1].trim());
+        i++;
+      }
+    }
+
+    // Sources URLs
+    const urlRegex = /https?:\/\/[^\s)"']+/gi;
+    const allUrls = text.match(urlRegex) || [];
+    output.urls = Array.from(new Set(allUrls)).slice(0, 5);
+
+    return output;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim() || isLoading) return;
+    if ((!query.trim() && !file) || isLoading) return;
 
     const newResult: FactCheckResult = {
       id: Date.now().toString(),
@@ -272,17 +312,34 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
 
     try {
       // Call backend notarize API using Agent Kit flow
-      const response = await fetch('http://localhost:3001/api/notarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountId: accountId || '0.0.test',
-          contentType: 'text',
-          text: query,
-          title: 'Fact-check request',
-          tags: 'fact-check,frontend'
-        }),
-      });
+      let response: Response;
+      if (file) {
+        const formData = new FormData();
+        formData.append('accountId', accountId || '0.0.test');
+        formData.append('contentType', 'image');
+        formData.append('file', file);
+        if (query && query.trim()) formData.append('text', query);
+        formData.append('title', 'Fact-check request (image)');
+        formData.append('tags', 'fact-check,frontend,image');
+        formData.append('mode', 'fact_check');
+        response = await fetch('http://localhost:3001/api/notarize', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        response = await fetch('http://localhost:3001/api/notarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accountId: accountId || '0.0.test',
+            contentType: 'text',
+            text: query,
+            title: 'Fact-check request',
+            tags: 'fact-check,frontend',
+            mode: 'fact_check'
+          }),
+        });
+      }
 
       if (!response.ok) throw new Error('Fact-check failed');
 
@@ -294,9 +351,15 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
         ? agentOutput 
         : (agentOutput?.output || agentOutput?.final_output || JSON.stringify(agentOutput));
 
-      // Try to extract URLs as sources from output text
+      // Parse fact-check specific fields
+      const fc = parseFactCheckOutput(outputText || '');
+
+      // Try to extract URLs as sources from output text (fallback if parser found none)
       const urlRegex = /https?:\/\/[^\s)"']+/gi;
-      const rawSources = (outputText?.match?.(urlRegex) || []).slice(0, 5);
+      const rawSources = (fc.urls && fc.urls.length > 0
+        ? fc.urls
+        : (outputText?.match?.(urlRegex) || [])
+      ).slice(0, 5);
       const parsedSources: Source[] = rawSources.map((src: string, idx: number) => {
         // Extract first URL if present in the string
         const urlMatch = typeof src === 'string' ? src.match(/https?:\/\/[^\s)"']+/i) : null;
@@ -319,6 +382,14 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
 
       const structured = parseStructuredAnalysis(outputText || '');
 
+      // Map verdicts into our internal enum-like values
+      const verdictRaw = (fc.verdict || '').toLowerCase();
+      let verdictMapped: AIResponse['verdict'] = 'NEEDS_CONTEXT';
+      if (verdictRaw.startsWith('true')) verdictMapped = 'TRUE';
+      else if (verdictRaw.startsWith('false')) verdictMapped = 'FALSE';
+      else if (verdictRaw.startsWith('mixed') || verdictRaw.startsWith('partial')) verdictMapped = 'PARTIALLY_TRUE';
+      else if (verdictRaw.startsWith('mislead')) verdictMapped = 'MISLEADING';
+
       const meta: FactCheckResult['meta'] = {
         ipfsCid: result?.ipfsCid,
         ipfsUrl: result?.ipfsGatewayUrl || result?.verificationLinks?.directIPFSAccess || null,
@@ -330,19 +401,20 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
           ipfsAccessible: result?.internalProcessing?.verificationStatus?.ipfsAccessible ?? undefined,
           hederaRecorded: result?.internalProcessing?.verificationStatus?.hederaRecorded ?? undefined,
         },
+        imageAnalysis: result?.internalProcessing?.imageAnalysis || undefined,
       };
 
       const aiResponse: AIResponse = {
         id: `ai-${Date.now()}`,
         aiModel: 'OPENAI_GPT4',
-        verdict: 'NEEDS_CONTEXT',
+        verdict: verdictMapped,
         confidence: 75,
-        reasoning: outputText || 'No analysis returned',
+        reasoning: (fc.detailed || fc.answer || outputText || 'No analysis returned'),
         sources: parsedSources,
         isWinner: true,
         bountyAmount: 3.5,
         processingTimeMs: 1200,
-        keyClaims: structured.keyClaims,
+        keyClaims: (fc.keyFacts && fc.keyFacts.length > 0) ? fc.keyFacts : structured.keyClaims,
         entities: structured.entities,
         riskLevel: structured.riskLevel,
         riskRationale: structured.riskRationale,
@@ -361,6 +433,8 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
             }
           : r
       ));
+      // Clear file after submit completes
+      setFile(null);
     } catch (error) {
       console.error('Fact-check error:', error);
     } finally {
@@ -544,6 +618,39 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
               </Box>
             </Box>
           )}
+
+          {/* Image Analysis Summary */}
+          {meta?.imageAnalysis && (
+            <Box mt={2}>
+              <ShimmerText variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>Image Fact-Check</ShimmerText>
+              {meta.imageAnalysis.summary && (
+                <Typography variant="body2" sx={{ color: '#e0e0e0', whiteSpace: 'pre-wrap', mb: 1 }}>
+                  {meta.imageAnalysis.summary}
+                </Typography>
+              )}
+              {Array.isArray(meta.imageAnalysis.best_guess_labels) && meta.imageAnalysis.best_guess_labels.length > 0 && (
+                <Box display="flex" flexWrap="wrap" gap={1} mb={1}>
+                  {meta.imageAnalysis.best_guess_labels.map((lbl: string, idx: number) => (
+                    <Chip key={idx} label={lbl} size="small" sx={{ color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }} />
+                  ))}
+                </Box>
+              )}
+              {Array.isArray(meta.imageAnalysis.articles) && meta.imageAnalysis.articles.length > 0 && (
+                <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr' }} gap={1}>
+                  {meta.imageAnalysis.articles.slice(0, 5).map((a: any, i: number) => (
+                    <GlassCard key={i} sx={{ p: 2 }}>
+                      <Typography variant="body2" sx={{ color: '#b0b0b0' }}>
+                        <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: '#60a5fa' }}>{a.url}</a>
+                      </Typography>
+                      {a.ai_summary && (
+                        <Typography variant="caption" sx={{ color: '#9ca3af' }}>{a.ai_summary}</Typography>
+                      )}
+                    </GlassCard>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          )}
         </CardContent>
       </PremiumCard>
     );
@@ -583,6 +690,22 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
             }}
           />
         </Box> */}
+
+        {/* Primary human-style answer */}
+        {response.reasoning && (
+          <Typography 
+            variant="body1" 
+            mb={2.5}
+            sx={{ 
+              color: '#e0e0e0',
+              lineHeight: 1.7,
+              fontSize: '1.05rem',
+              textShadow: '0 1px 2px rgba(0,0,0,0.25)',
+            }}
+          >
+            {response.reasoning}
+          </Typography>
+        )}
 
         {/* Structured sections if available */}
         {(response.keyClaims && response.keyClaims.length > 0) && (
@@ -639,18 +762,7 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
           </Box>
         )}
 
-        {/* Fallback full reasoning */}
-        {/* <Typography 
-          variant="body1" 
-          mb={2.5}
-          sx={{ 
-            color: '#e0e0e0',
-            lineHeight: 1.6,
-            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-          }}
-        >
-          {response.reasoning}
-        </Typography> */}
+        {/* End Answer & structured details */}
 
         {response.sources.length > 0 && (
           <>
@@ -941,7 +1053,7 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
             }}
           >
             <form onSubmit={handleSubmit}>
-              <Box display="flex" gap={2} alignItems="center">
+            <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
                 <TextField
                   ref={inputRef}
                   fullWidth
@@ -980,9 +1092,17 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
                     },
                   }}
                 />
+              <Button
+                variant="outlined"
+                component="label"
+                sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)' }}
+              >
+                {file ? 'Change image' : 'Attach image'}
+                <input hidden type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              </Button>
                 <IconButton 
                   type="submit" 
-                  disabled={!query.trim() || isLoading}
+                disabled={(!query.trim() && !file) || isLoading}
                   sx={{ 
                     width: 56,
                     height: 56,

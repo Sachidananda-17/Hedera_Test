@@ -50,3 +50,4 @@ dist/
 .next/
 .nuxt/
 .output/
+apps/backend/config/gcp-vision-sa.json
