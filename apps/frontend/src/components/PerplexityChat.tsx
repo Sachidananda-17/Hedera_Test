@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Box,
   Container,
@@ -13,6 +14,10 @@ import {
   Button,
   Grow,
   Slide,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -115,6 +120,14 @@ interface AIResponse {
   recommended?: string[];
 }
 
+interface StakingConfig {
+  enabled: boolean;
+  minimumStake: number; // In tinybars
+  minimumStakeHbar: number; // In HBAR
+  contractId: string;
+  appAccountId: string;
+}
+
 interface FactCheckResult {
   id: string;
   content: string;
@@ -149,6 +162,17 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [currentTyping, setCurrentTyping] = useState<string | null>(null);
+  
+  // Staking state
+  const [stakingConfig, setStakingConfig] = useState<StakingConfig | null>(null);
+  const [hasStaked, setHasStaked] = useState(false);
+  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null);
+  const [showStakingModal, setShowStakingModal] = useState(false);
+  const [stakingData, setStakingData] = useState({
+    userAccountId: accountId || '',
+    userPrivateKey: '',
+    stakeAmount: 50000000 // Will be updated when config loads
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -156,6 +180,63 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [results, currentTyping]);
+
+  // Load staking configuration
+  useEffect(() => {
+    const loadStakingConfig = async () => {
+      try {
+        console.log('🔍 Loading staking config...');
+        const response = await fetch('http://localhost:3001/api/staking/config');
+        console.log('📡 Staking config response:', response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Staking config loaded:', data);
+          setStakingConfig(data.config); // Extract config from response
+          // Update stake amount when config loads
+          setStakingData(prev => ({
+            ...prev,
+            stakeAmount: data.config.minimumStake || 50000000
+          }));
+        } else {
+          console.error('❌ Staking config API failed:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load staking config:', error);
+      }
+    };
+    loadStakingConfig();
+  }, []);
+
+  // Handle staking process
+  const handleStake = async () => {
+    try {
+      const requestId = uuidv4();
+      setCurrentRequestId(requestId);
+      
+      const response = await fetch('http://localhost:3001/api/staking/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId,
+          stakeAmount: stakingData.stakeAmount,
+          userAccountId: stakingData.userAccountId,
+          userPrivateKey: stakingData.userPrivateKey
+        })
+      });
+      
+      if (response.ok) {
+        setHasStaked(true);
+        setShowStakingModal(false);
+        alert(`✅ Successfully staked ${stakingConfig?.minimumStakeHbar || '0.5'} HBAR! You can now submit fact-check requests.`);
+      } else {
+        const error = await response.json();
+        alert(`❌ Staking failed: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('Staking error:', error);
+      alert(`❌ Staking failed: ${error.message}`);
+    }
+  };
 
   const getVerdictColor = (verdict: string) => {
     switch (verdict) {
@@ -297,6 +378,13 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
     e.preventDefault();
     if ((!query.trim() && !file) || isLoading) return;
 
+    // Check if staking is required
+    if (stakingConfig?.enabled && !hasStaked) {
+      // Don't submit yet - user needs to stake first
+      setShowStakingModal(true);
+      return;
+    }
+
     const newResult: FactCheckResult = {
       id: Date.now().toString(),
       content: query,
@@ -310,6 +398,13 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
     setIsLoading(true);
     setCurrentTyping(newResult.id);
 
+    // Generate request ID for staking
+    let requestId = currentRequestId;
+    if (stakingConfig?.enabled && !requestId) {
+      requestId = uuidv4();
+      setCurrentRequestId(requestId);
+    }
+
     try {
       // Call backend notarize API using Agent Kit flow
       let response: Response;
@@ -322,22 +417,31 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
         formData.append('title', 'Fact-check request (image)');
         formData.append('tags', 'fact-check,frontend,image');
         formData.append('mode', 'fact_check');
+        if (requestId) {
+          formData.append('requestId', requestId);
+          formData.append('stakeVerified', 'true');
+        }
         response = await fetch('http://localhost:3001/api/notarize', {
           method: 'POST',
           body: formData,
         });
       } else {
+        const requestBody: any = {
+          accountId: accountId || '0.0.test',
+          contentType: 'text',
+          text: query,
+          title: 'Fact-check request',
+          tags: 'fact-check,frontend',
+          mode: 'fact_check'
+        };
+        if (requestId) {
+          requestBody.requestId = requestId;
+          requestBody.stakeVerified = true;
+        }
         response = await fetch('http://localhost:3001/api/notarize', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            accountId: accountId || '0.0.test',
-            contentType: 'text',
-            text: query,
-            title: 'Fact-check request',
-            tags: 'fact-check,frontend',
-            mode: 'fact_check'
-          }),
+          body: JSON.stringify(requestBody),
         });
       }
 
@@ -848,6 +952,26 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
     >
       {/* Chat Container */}
       <Container maxWidth="md" sx={{ flex: 1, py: 3, overflow: 'hidden', position: 'relative', zIndex: 5 }}>
+        {/* Staking Status */}
+        {stakingConfig?.enabled && (
+          <Box sx={{ 
+            mb: 2, 
+            p: 1.5, 
+            background: hasStaked 
+              ? 'linear-gradient(45deg, #00ff88, #00cc88)' 
+              : 'linear-gradient(45deg, #ff6b6b, #cc5555)',
+            borderRadius: 2, 
+            textAlign: 'center' 
+          }}>
+            <Typography variant="caption" sx={{ color: '#000', fontWeight: 'bold' }}>
+              {hasStaked 
+                ? `✅ Staked: ${stakingConfig.minimumStakeHbar || '0.5'} HBAR - Ready for fact-checking`
+                : `⚠️ Staking Required: ${stakingConfig.minimumStakeHbar || '0.5'} HBAR needed before fact-checking`
+              }
+            </Typography>
+          </Box>
+        )}
+        
         <Box 
           sx={{ 
             height: '100%',
@@ -1130,6 +1254,68 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
           </GlassCard>
         </Box>
       </Container>
+
+      {/* Staking Modal */}
+      <Dialog 
+        open={showStakingModal} 
+        onClose={() => setShowStakingModal(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            background: 'linear-gradient(145deg, #1a1a1a, #2d2d2d)',
+            color: '#fff',
+            borderRadius: 3
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: '#00ff88', fontWeight: 'bold' }}>
+          💰 Stake HBAR for Fact-Checking
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 3, color: '#ccc' }}>
+            Stake {stakingConfig?.minimumStakeHbar || '0.5'} HBAR to access premium fact-checking services.
+          </Typography>
+          
+          <TextField
+            fullWidth
+            label="Your Account ID"
+            value={stakingData.userAccountId}
+            onChange={(e) => setStakingData({...stakingData, userAccountId: e.target.value})}
+            sx={{ mb: 2, '& .MuiInputLabel-root': { color: '#ccc' }, '& .MuiOutlinedInput-root': { color: '#fff' } }}
+          />
+          
+          <TextField
+            fullWidth
+            label="Your Private Key"
+            type="password"
+            value={stakingData.userPrivateKey}
+            onChange={(e) => setStakingData({...stakingData, userPrivateKey: e.target.value})}
+            sx={{ mb: 2, '& .MuiInputLabel-root': { color: '#ccc' }, '& .MuiOutlinedInput-root': { color: '#fff' } }}
+          />
+          
+          <Typography variant="caption" sx={{ color: '#888' }}>
+            Amount: {stakingConfig?.minimumStakeHbar || '0.5'} HBAR (automatically set)
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowStakingModal(false)} sx={{ color: '#999' }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleStake}
+            variant="contained"
+            disabled={!stakingData.userAccountId || !stakingData.userPrivateKey}
+            sx={{ 
+              background: 'linear-gradient(45deg, #00ff88, #00cc6a)',
+              color: '#000',
+              fontWeight: 'bold'
+            }}
+          >
+            Stake {stakingConfig?.minimumStakeHbar || '0.5'} HBAR
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

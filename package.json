@@ -5,13 +5,13 @@
   "type": "module",
   "workspaces": [
     "apps/frontend",
-    "apps/backend", 
+    "apps/backend",
     "packages/*"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd apps/backend && npm run dev",
-    "dev:frontend": "cd apps/frontend && npm run dev", 
+    "dev:frontend": "cd apps/frontend && npm run dev",
     "start": "npm run start:backend",
     "start:backend": "cd apps/backend && npm start",
     "start:frontend": "cd apps/frontend && npm run preview",
@@ -20,10 +20,10 @@
     "build:backend": "echo 'Backend build not required for Node.js'",
     "build:extension": "node apps/extension/build.mjs",
     "test": "npm run test:e2e",
-    "test:agents": "node packages/agents/core/test-phase2.js", 
+    "test:agents": "node packages/agents/core/test-phase2.js",
     "test:e2e": "node tests/e2e/complete-flow-test.js",
     "phase2:start": "node packages/agents/orchestrators/main-orchestrator.js",
-    "phase2:demo": "node packages/agents/orchestrators/demo-orchestrator.js", 
+    "phase2:demo": "node packages/agents/orchestrators/demo-orchestrator.js",
     "phase2:improved": "node packages/agents/orchestrators/improved-orchestrator.js",
     "phase2:test": "node packages/agents/core/test-phase2.js",
     "setup": "npm install && cd apps/frontend && npm install && cd ../backend && npm install",
@@ -42,19 +42,19 @@
     "hedera:setup": "npm install && npx hardhat compile && npm run hedera:check"
   },
   "dependencies": {
+    "@walletconnect/sign-client": "^2.21.8",
+    "@walletconnect/utils": "^2.10.4",
     "concurrently": "^8.2.2",
     "esbuild": "^0.23.0",
-    "hashconnect": "^0.2.9",
-    "@walletconnect/sign-client": "^2.21.8",
-    "@walletconnect/utils": "^2.10.4"
+    "hashconnect": "^0.2.9"
   },
   "devDependencies": {
-    "prettier": "^3.0.0",
-    "hardhat": "^2.19.0",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
-    "ethers": "^5.7.2",
     "@nomiclabs/hardhat-waffle": "^2.0.6",
-    "chai": "^4.3.10"
+    "chai": "^4.3.10",
+    "ethers": "^6.15.0",
+    "hardhat": "^2.19.0",
+    "prettier": "^3.0.0"
   },
   "engines": {
     "node": ">=18.0.0",
@@ -66,7 +66,7 @@
   },
   "keywords": [
     "hedera",
-    "blockchain", 
+    "blockchain",
     "ipfs",
     "notarization",
     "ai",
