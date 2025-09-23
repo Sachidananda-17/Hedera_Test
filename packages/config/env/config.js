@@ -93,6 +93,18 @@ export const config = {
     phase2Enabled: !!process.env.HUGGINGFACE_API_KEY,
     autoEvidencePreparation: process.env.AUTO_EVIDENCE_PREPARATION !== 'false',
     realTimeProcessing: process.env.REAL_TIME_PROCESSING !== 'false'
+  },
+
+  // Staking Configuration
+  staking: {
+    enabled: process.env.ENABLE_STAKING === 'true',
+    appAccountId: process.env.STAKING_APP_ACCOUNT_ID || '0.0.6884960',
+    minimumStake: parseInt(process.env.MINIMUM_STAKE_AMOUNT) || 50000000, // 0.5 HBAR in tinybars
+    serviceTimeout: parseInt(process.env.SERVICE_TIMEOUT) || 3600, // 1 hour in seconds
+    contractId: process.env.STAKING_CONTRACT_ID || null,
+    autoRefundTimeout: parseInt(process.env.AUTO_REFUND_TIMEOUT) || 86400, // 24 hours
+    maxStakeAmount: parseInt(process.env.MAX_STAKE_AMOUNT) || 1000000000, // 10 HBAR max
+    gracePeriod: parseInt(process.env.STAKING_GRACE_PERIOD) || 300 // 5 minutes grace period
   }
 };
 
@@ -139,6 +151,12 @@ export function getConfigSummary() {
     ai: {
       huggingFaceConfigured: !!config.ai.huggingFaceApiKey,
       phase2Enabled: config.features.phase2Enabled
+    },
+    staking: {
+      enabled: config.staking.enabled,
+      appAccountId: config.staking.appAccountId,
+      minimumStake: `${config.staking.minimumStake / 100000000} HBAR`,
+      contractConfigured: !!config.staking.contractId
     },
     features: config.features
   };

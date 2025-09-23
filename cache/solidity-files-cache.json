@@ -1,0 +1,113 @@
+{
+  "_format": "hh-sol-cache-2",
+  "files": {
+    "/Users/manideepkaralapati/Hedera_Test/contracts/NotarizationStaking.sol": {
+      "lastModificationDate": 1758651209493,
+      "contentHash": "7dc5be21b90129a92f694654b17c9ba0",
+      "sourceName": "contracts/NotarizationStaking.sol",
+      "solcConfig": {
+        "version": "0.8.9",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "evmVersion": "istanbul",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "0.8.9"
+      ],
+      "artifacts": [
+        "NotarizationStaking"
+      ]
+    },
+    "/Users/manideepkaralapati/Hedera_Test/contracts/SimpleTest.sol": {
+      "lastModificationDate": 1758647647401,
+      "contentHash": "8953da396dc3415385ce2aea515cb509",
+      "sourceName": "contracts/SimpleTest.sol",
+      "solcConfig": {
+        "version": "0.8.9",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "evmVersion": "istanbul",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "0.8.9"
+      ],
+      "artifacts": [
+        "SimpleTest"
+      ]
+    },
+    "/Users/manideepkaralapati/Hedera_Test/contracts/MinimalStaking.sol": {
+      "lastModificationDate": 1758651324759,
+      "contentHash": "90e1d5610b74c338c7fc1703a8fbe15a",
+      "sourceName": "contracts/MinimalStaking.sol",
+      "solcConfig": {
+        "version": "0.8.9",
+        "settings": {
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "evmVersion": "istanbul",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "0.8.9"
+      ],
+      "artifacts": [
+        "MinimalStaking"
+      ]
+    }
+  }
+}

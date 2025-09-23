@@ -7,7 +7,7 @@
     "@google-ai/generativelanguage": "^3.4.0",
     "@google-cloud/vision": "^5.3.3",
     "@google/generative-ai": "^0.24.1",
-    "@hashgraph/sdk": "^2.19.2",
+    "@hashgraph/sdk": "^2.50.0",
     "@huggingface/inference": "^2.6.4",
     "@langchain/core": "^0.3.75",
     "@langchain/google-genai": "^0.2.17",

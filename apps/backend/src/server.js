@@ -28,6 +28,7 @@ import { config, validateConfig, getConfigSummary } from '../../../packages/conf
 import MainOrchestrator from '../../../packages/agents/orchestrators/main-orchestrator.js';
 import ImprovedOrchestrator from '../../../packages/agents/orchestrators/improved-orchestrator.js';
 import contentStore from '../../../packages/agents/content-store.js';
+import StakingContractManager from '../../../packages/contracts/contract-manager.js';
 
 // Validate configuration before starting
 try {
@@ -507,7 +508,7 @@ app.get('/api/debug/verify-cid/:cid', async (req, res) => {
 // Main notarization endpoint
 app.post('/api/notarize', upload.single('file'), async (req, res) => {
   try {
-    const { accountId, contentType, text, title = '', tags = '', mode = 'analysis', prompt: userPrompt = '' } = req.body;
+    const { accountId, contentType, text, title = '', tags = '', mode = 'analysis', prompt: userPrompt = '', requestId, stakeVerified } = req.body;
     const file = req.file;
 
     // Validate required fields
@@ -517,6 +518,43 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
 
     if (contentType !== 'text' && contentType !== 'image') {
       return res.status(400).json({ success: false, error: 'Content type must be text or image' });
+    }
+
+    // STAKING VALIDATION - Check if staking is enabled and validate stake
+    if (config.staking.enabled && stakingManager) {
+      if (!requestId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Request ID is required for staking',
+          stakingRequired: true,
+          minimumStake: `${config.staking.minimumStake / 100000000} HBAR`
+        });
+      }
+
+      if (!stakeVerified) {
+        try {
+          // Check if stake exists and is valid
+          const stakeInfo = await stakingManager.getStake(requestId);
+          if (!stakeInfo || stakeInfo.status !== 'PENDING') {
+            return res.status(400).json({
+              success: false,
+              error: 'Valid stake required for notarization',
+              stakingRequired: true,
+              minimumStake: `${config.staking.minimumStake / 100000000} HBAR`,
+              requestId
+            });
+          }
+          console.log('💰 Stake validated for request:', requestId);
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            error: 'Stake validation failed',
+            stakingRequired: true,
+            minimumStake: `${config.staking.minimumStake / 100000000} HBAR`,
+            details: error.message
+          });
+        }
+      }
     }
 
     // Determine actual content scenario
@@ -886,6 +924,42 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
       }
     };
 
+    // STAKING COMPLETION - Complete or refund stake based on success
+    if (config.staking.enabled && stakingManager && requestId) {
+      try {
+        if (ipfsSuccess && hederaTransactionHash) {
+          // Service completed successfully - transfer stake to app account
+          await stakingManager.completeStake(requestId);
+          console.log('✅ Stake completed - funds transferred to app account for request:', requestId);
+          response.staking = {
+            status: 'completed',
+            message: 'Stake transferred to application account',
+            transactionSuccessful: true
+          };
+        } else {
+          // Service failed - refund stake to user
+          await stakingManager.refundStake(requestId);
+          console.log('💸 Stake refunded due to service failure for request:', requestId);
+          response.staking = {
+            status: 'refunded',
+            message: 'Stake refunded due to service failure',
+            transactionSuccessful: false
+          };
+        }
+      } catch (stakingError) {
+        console.error('❌ Staking operation failed:', stakingError.message);
+        response.staking = {
+          status: 'error',
+          message: 'Staking operation failed',
+          error: stakingError.message
+        };
+        
+        // If we can't process staking, we should still return the original response
+        // but log this as a critical issue
+        console.error('🚨 CRITICAL: Staking system failure - manual intervention required for request:', requestId);
+      }
+    }
+
     // Return appropriate status code
     if (ipfsSuccess) {
       res.json(response);
@@ -895,10 +969,22 @@ app.post('/api/notarize', upload.single('file'), async (req, res) => {
 
   } catch (error) {
     console.error('❌ Notarization error:', error);
+    
+    // STAKING REFUND - If there was an error, refund the stake
+    if (config.staking.enabled && stakingManager && requestId) {
+      try {
+        await stakingManager.refundStake(requestId);
+        console.log('💸 Stake refunded due to system error for request:', requestId);
+      } catch (stakingError) {
+        console.error('🚨 CRITICAL: Failed to refund stake after system error for request:', requestId, stakingError.message);
+      }
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: error.message
+      message: error.message,
+      ...(requestId && { staking: { status: 'refunded', message: 'Stake refunded due to system error' } })
     });
   }
 });
@@ -932,6 +1018,23 @@ if (config.features.phase2Enabled) {
   }
 } else {
   console.log('⚠️ Phase 2 not initialized - HuggingFace API key not configured');
+}
+
+// Initialize staking contract manager
+let stakingManager = null;
+
+if (config.staking.enabled) {
+  try {
+    stakingManager = new StakingContractManager();
+    stakingManager.loadContractId(); // Try to load existing contract
+    console.log('💰 Staking system initialized', {
+      enabled: config.staking.enabled,
+      appAccount: config.staking.appAccountId,
+      minimumStake: `${config.staking.minimumStake / 100000000} HBAR`
+    });
+  } catch (error) {
+    console.warn('⚠️ Failed to initialize staking manager:', error.message);
+  }
 }
 
 // Phase 2 API Endpoints
@@ -1159,6 +1262,229 @@ app.post('/api/phase2/improved/process/:cid', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// ========================================
+// STAKING API ENDPOINTS
+// ========================================
+
+// Deploy staking contract
+app.post('/api/staking/deploy', async (req, res) => {
+  if (!stakingManager) {
+    return res.status(400).json({
+      success: false,
+      message: 'Staking system not enabled'
+    });
+  }
+
+  try {
+    const contractId = await stakingManager.deployContract();
+    res.json({
+      success: true,
+      message: 'Staking contract deployed successfully',
+      contractId,
+      appAccountId: config.staking.appAccountId,
+      minimumStake: `${config.staking.minimumStake / 100000000} HBAR`
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to deploy staking contract',
+      error: error.message
+    });
+  }
+});
+
+// Create stake for notarization request
+app.post('/api/staking/create', async (req, res) => {
+  if (!stakingManager) {
+    return res.status(400).json({
+      success: false,
+      message: 'Staking system not enabled'
+    });
+  }
+
+  try {
+    const { requestId, stakeAmount, userAccountId, userPrivateKey } = req.body;
+
+    // Validate required fields
+    if (!requestId || !stakeAmount || !userAccountId || !userPrivateKey) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: requestId, stakeAmount, userAccountId, userPrivateKey'
+      });
+    }
+
+    // Validate stake amount
+    if (stakeAmount < config.staking.minimumStake) {
+      return res.status(400).json({
+        success: false,
+        message: `Stake amount too low. Minimum: ${config.staking.minimumStake / 100000000} HBAR`
+      });
+    }
+
+    if (stakeAmount > config.staking.maxStakeAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Stake amount too high. Maximum: ${config.staking.maxStakeAmount / 100000000} HBAR`
+      });
+    }
+
+    const result = await stakingManager.createStake(
+      requestId,
+      stakeAmount,
+      userAccountId,
+      userPrivateKey
+    );
+
+    res.json({
+      success: true,
+      message: 'Stake created successfully',
+      stake: result,
+      timeout: config.staking.serviceTimeout
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create stake',
+      error: error.message
+    });
+  }
+});
+
+// Complete stake after successful service
+app.post('/api/staking/complete/:requestId', async (req, res) => {
+  if (!stakingManager) {
+    return res.status(400).json({
+      success: false,
+      message: 'Staking system not enabled'
+    });
+  }
+
+  try {
+    const { requestId } = req.params;
+    const result = await stakingManager.completeStake(requestId);
+
+    res.json({
+      success: true,
+      message: 'Stake completed - funds transferred to app account',
+      stake: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to complete stake',
+      error: error.message
+    });
+  }
+});
+
+// Refund stake due to service failure
+app.post('/api/staking/refund/:requestId', async (req, res) => {
+  if (!stakingManager) {
+    return res.status(400).json({
+      success: false,
+      message: 'Staking system not enabled'
+    });
+  }
+
+  try {
+    const { requestId } = req.params;
+    const result = await stakingManager.refundStake(requestId);
+
+    res.json({
+      success: true,
+      message: 'Stake refunded to user',
+      stake: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to refund stake',
+      error: error.message
+    });
+  }
+});
+
+// Get stake information
+app.get('/api/staking/stake/:requestId', async (req, res) => {
+  if (!stakingManager) {
+    return res.status(400).json({
+      success: false,
+      message: 'Staking system not enabled'
+    });
+  }
+
+  try {
+    const { requestId } = req.params;
+    const stake = await stakingManager.getStake(requestId);
+
+    res.json({
+      success: true,
+      stake
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get stake information',
+      error: error.message
+    });
+  }
+});
+
+// Get staking system status
+app.get('/api/staking/status', async (req, res) => {
+  if (!stakingManager) {
+    return res.json({
+      success: false,
+      enabled: false,
+      message: 'Staking system not enabled'
+    });
+  }
+
+  try {
+    let contractBalance = null;
+    try {
+      contractBalance = await stakingManager.getContractBalance();
+    } catch (error) {
+      // Contract balance check failed, but don't fail the whole endpoint
+    }
+
+    res.json({
+      success: true,
+      enabled: config.staking.enabled,
+      appAccountId: config.staking.appAccountId,
+      minimumStake: `${config.staking.minimumStake / 100000000} HBAR`,
+      maxStakeAmount: `${config.staking.maxStakeAmount / 100000000} HBAR`,
+      serviceTimeout: `${config.staking.serviceTimeout}s`,
+      contractId: stakingManager.contractId,
+      contractBalance
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get staking status',
+      error: error.message
+    });
+  }
+});
+
+// Get staking configuration
+app.get('/api/staking/config', (req, res) => {
+  res.json({
+    success: true,
+    config: {
+      enabled: config.staking.enabled,
+      appAccountId: config.staking.appAccountId,
+      minimumStake: config.staking.minimumStake,
+      minimumStakeHbar: config.staking.minimumStake / 100000000,
+      maxStakeAmount: config.staking.maxStakeAmount,
+      maxStakeAmountHbar: config.staking.maxStakeAmount / 100000000,
+      serviceTimeout: config.staking.serviceTimeout,
+      autoRefundTimeout: config.staking.autoRefundTimeout,
+      gracePeriod: config.staking.gracePeriod
+    }
+  });
 });
 
 // Start server

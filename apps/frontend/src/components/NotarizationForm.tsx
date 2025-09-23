@@ -5,6 +5,8 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { Upload, FileText, CheckCircle2, Brain, Shield, Globe, Clock, Zap, Award, Sparkles, Cpu } from "lucide-react";
+import { StakingStep } from "./StakingStep";
+import { stakingService, type StakingConfig } from "../services/staking";
 
 // Typewriter animation component
 const TypewriterText = ({ text, delay = 0, speed = 50 }: { text: string; delay?: number; speed?: number }) => {
@@ -86,10 +88,50 @@ export default function NotarizationForm() {
   const [showResult, setShowResult] = useState(false);
   const [processingStage, setProcessingStage] = useState<string>("");
 
+  // Staking-related state
+  const [stakingConfig, setStakingConfig] = useState<StakingConfig | null>(null);
+  const [isStakingEnabled, setIsStakingEnabled] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'staking' | 'form' | 'processing'>('form');
+  const [requestId, setRequestId] = useState<string>('');
+  const [userAccountId, setUserAccountId] = useState<string>('');
+  const [userPrivateKey, setUserPrivateKey] = useState<string>('');
+
+  // Load staking configuration on component mount
+  useEffect(() => {
+    const loadStakingConfig = async () => {
+      try {
+        const config = await stakingService.getStakingConfig();
+        setStakingConfig(config);
+        setIsStakingEnabled(config.enabled);
+        
+        // If staking is enabled, start with staking step
+        if (config.enabled) {
+          setCurrentStep('staking');
+        }
+      } catch (error) {
+        console.error('Failed to load staking config:', error);
+        setIsStakingEnabled(false);
+      }
+    };
+
+    loadStakingConfig();
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
     }
+  };
+
+  // Handle stake creation completion
+  const handleStakeCreated = (newRequestId: string) => {
+    setRequestId(newRequestId);
+    setCurrentStep('form');
+  };
+
+  // Handle skipping staking (if allowed)
+  const handleSkipStaking = () => {
+    setCurrentStep('form');
   };
 
   const handleSubmit = async () => {
@@ -134,6 +176,12 @@ export default function NotarizationForm() {
       // Prepare form data
       const formData = new FormData();
       formData.append('accountId', accountId);
+      
+      // Add staking parameters if enabled
+      if (isStakingEnabled && requestId) {
+        formData.append('requestId', requestId);
+        formData.append('stakeVerified', 'true');
+      }
       
       if (file) {
         formData.append('contentType', 'image');
@@ -247,11 +295,43 @@ export default function NotarizationForm() {
             Hedera AI Notary
           </h1>
           <TypewriterText 
-            text="Decentralized content verification with AI-powered analysis" 
+            text={currentStep === 'staking' ? 
+              "Secure your request with HBAR staking" : 
+              "Decentralized content verification with AI-powered analysis"
+            }
             speed={30}
             delay={500}
           />
         </motion.div>
+
+        {/* Conditional rendering based on current step */}
+        <AnimatePresence mode="wait">
+          {currentStep === 'staking' && isStakingEnabled && stakingConfig && (
+            <motion.div
+              key="staking"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+              className="w-full flex justify-center"
+            >
+              <StakingStep
+                onStakeCreated={handleStakeCreated}
+                onSkip={!stakingConfig.enabled ? handleSkipStaking : undefined}
+                accountId={(window as any).connectedAccountId || ''}
+                privateKey={userPrivateKey}
+                stakingConfig={stakingConfig}
+                isRequired={stakingConfig.enabled}
+              />
+            </motion.div>
+          )}
+
+          {(currentStep === 'form' || (!isStakingEnabled)) && (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 50 }}
+            >
 
         {/* Input Section - Full Width ChatGPT Style */}
         <motion.div
@@ -859,6 +939,8 @@ export default function NotarizationForm() {
                   )}
                 </div>
               )}
+            </motion.div>
+          )}
             </motion.div>
           )}
         </AnimatePresence>

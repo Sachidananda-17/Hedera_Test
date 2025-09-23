@@ -35,7 +35,11 @@
     "lint:backend": "echo 'Backend linting not configured'",
     "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
     "docs": "echo 'Documentation generation not configured'",
-    "health": "node scripts/dev/health-check.js"
+    "health": "node scripts/dev/health-check.js",
+    "hedera:check": "node scripts/check-hedera-setup.js",
+    "hedera:costs": "node scripts/estimate-deployment-costs.js",
+    "hedera:deploy": "node scripts/deploy-staking-contract.js",
+    "hedera:setup": "npm install && npx hardhat compile && npm run hedera:check"
   },
   "dependencies": {
     "concurrently": "^8.2.2",
@@ -45,7 +49,12 @@
     "@walletconnect/utils": "^2.10.4"
   },
   "devDependencies": {
-    "prettier": "^3.0.0"
+    "prettier": "^3.0.0",
+    "hardhat": "^2.19.0",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "ethers": "^5.7.2",
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
+    "chai": "^4.3.10"
   },
   "engines": {
     "node": ">=18.0.0",
