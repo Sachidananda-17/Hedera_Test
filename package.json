@@ -5,44 +5,39 @@
   "type": "module",
   "workspaces": [
     "apps/frontend",
-    "apps/backend", 
+    "apps/backend",
     "packages/*"
   ],
   "scripts": {
+    "deploy:contract": "node apps/backend/src/scripts/deployContract.js",
+    "test:contract": "node apps/backend/src/scripts/testContract.js",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd apps/backend && npm run dev",
-    "dev:frontend": "cd apps/frontend && npm run dev", 
+    "dev:frontend": "cd apps/frontend && npm run dev",
     "start": "npm run start:backend",
     "start:backend": "cd apps/backend && npm start",
     "start:frontend": "cd apps/frontend && npm run preview",
-    "build": "npm run build:frontend && npm run build:backend && npm run build:extension",
+    "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd apps/frontend && npm run build",
     "build:backend": "echo 'Backend build not required for Node.js'",
-    "build:extension": "node apps/extension/build.mjs",
-    "test": "npm run test:e2e",
-    "test:agents": "node packages/agents/core/test-phase2.js", 
-    "test:e2e": "node tests/e2e/complete-flow-test.js",
-    "phase2:start": "node packages/agents/orchestrators/main-orchestrator.js",
-    "phase2:demo": "node packages/agents/orchestrators/demo-orchestrator.js", 
-    "phase2:improved": "node packages/agents/orchestrators/improved-orchestrator.js",
-    "phase2:test": "node packages/agents/core/test-phase2.js",
-    "setup": "npm install && cd apps/frontend && npm install && cd ../backend && npm install",
+    "setup": "npm install",
     "clean": "npm run clean:deps && npm run clean:build",
-    "clean:deps": "rmdir /s /q node_modules && rmdir /s /q apps\\frontend\\node_modules && rmdir /s /q apps\\backend\\node_modules",
-    "clean:build": "rmdir /s /q apps\\frontend\\dist",
+    "clean:deps": "rm -rf node_modules && rm -rf apps/frontend/node_modules && rm -rf apps/backend/node_modules",
+    "clean:build": "rm -rf apps/frontend/dist",
     "lint": "npm run lint:frontend && npm run lint:backend",
     "lint:frontend": "cd apps/frontend && npm run lint",
-    "lint:backend": "echo 'Backend linting not configured'",
-    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\"",
-    "docs": "echo 'Documentation generation not configured'",
-    "health": "node scripts/dev/health-check.js"
+    "lint:backend": "echo 'Backend linting not configured'"
   },
   "dependencies": {
-    "concurrently": "^8.2.2",
-    "esbuild": "^0.23.0",
-    "hashconnect": "^0.2.9",
+    "@hashgraph/sdk": "^2.73.1",
     "@walletconnect/sign-client": "^2.21.8",
-    "@walletconnect/utils": "^2.10.4"
+    "@walletconnect/utils": "^2.10.4",
+    "concurrently": "^8.2.2",
+    "dotenv": "^17.2.2",
+    "esbuild": "^0.23.0",
+    "fs-extra": "^11.3.2",
+    "hashconnect": "^0.2.9",
+    "solc": "^0.8.30"
   },
   "devDependencies": {
     "prettier": "^3.0.0"
@@ -50,22 +45,5 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/username/hedera-content-notarization"
-  },
-  "keywords": [
-    "hedera",
-    "blockchain", 
-    "ipfs",
-    "notarization",
-    "ai",
-    "claim-verification",
-    "decentralized",
-    "content-protection"
-  ],
-  "author": "Your Name",
-  "license": "ISC",
-  "private": false
+  }
 }
