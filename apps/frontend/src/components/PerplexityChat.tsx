@@ -21,6 +21,12 @@ import {
   AutoAwesome as AiIcon,
 } from '@mui/icons-material';
 import { keyframes, styled } from '@mui/system';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import TranslateIcon from '@mui/icons-material/Translate';
+import { apiService } from '../services/api';
+import AuroraBackground from './animations/AuroraBackground';
+import AnimatedGradientText from './animations/AnimatedGradientText';
+import ClickSpark from './animations/ClickSpark';
 
 // Premium animations
 const typing = keyframes`
@@ -141,6 +147,7 @@ interface FactCheckResult {
       articles?: Array<{ url: string; ai_summary?: string; content?: string; matches_count?: number }>;
     };
   };
+  translations?: Record<string, string>;
 }
 
 const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
@@ -151,6 +158,8 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
   const [currentTyping, setCurrentTyping] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [isTranslatingId, setIsTranslatingId] = useState<string | null>(null);
+  const [ttsState, setTtsState] = useState<{ activeResultId?: string; activeLang?: string; isSpeaking: boolean; isPaused: boolean }>({ isSpeaking: false, isPaused: false });
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -440,6 +449,48 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
     } finally {
       setIsLoading(false);
       setCurrentTyping(null);
+    }
+  };
+
+  const speakText = (text: string, lang: string = 'en-IN', resultId?: string, code?: string) => {
+    try {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 1;
+      utter.pitch = 1;
+      window.speechSynthesis.cancel();
+      utter.onstart = () => setTtsState({ activeResultId: resultId, activeLang: code || lang, isSpeaking: true, isPaused: false });
+      utter.onpause = () => setTtsState(prev => ({ ...prev, isPaused: true }));
+      utter.onresume = () => setTtsState(prev => ({ ...prev, isPaused: false }));
+      utter.onend = () => setTtsState({ isSpeaking: false, isPaused: false });
+      window.speechSynthesis.speak(utter);
+    } catch (_) {
+      // no-op if TTS not supported
+    }
+  };
+
+  const pauseTTS = () => {
+    try { window.speechSynthesis.pause(); setTtsState(prev => ({ ...prev, isPaused: true })); } catch (_) {}
+  };
+  const resumeTTS = () => {
+    try { window.speechSynthesis.resume(); setTtsState(prev => ({ ...prev, isPaused: false })); } catch (_) {}
+  };
+  const stopTTS = () => {
+    try { window.speechSynthesis.cancel(); setTtsState({ isSpeaking: false, isPaused: false }); } catch (_) {}
+  };
+
+  const translateResponse = async (resultId: string) => {
+    try {
+      setIsTranslatingId(resultId);
+      const target = ['hi','ru','te'];
+      const res = results.find(r => r.id === resultId);
+      const text = res?.bestResponse?.reasoning || res?.responses?.[0]?.reasoning || res?.content || '';
+      if (!text) return;
+      const apiRes = await apiService.translate(text, target);
+      if (!apiRes.success || !apiRes.data?.translations) return;
+      setResults(prev => prev.map(r => r.id === resultId ? { ...r, translations: apiRes.data.translations } : r));
+    } finally {
+      setIsTranslatingId(null);
     }
   };
 
@@ -782,6 +833,7 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
             ))}
           </>
         )}
+
       </CardContent>
     </PremiumCard>
   );
@@ -826,26 +878,8 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
   );
 
   return (
-    <Box 
-      sx={{ 
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: 'linear-gradient(180deg, #000000 0%, #1a1a1a 50%, #000000 100%)',
-        position: 'relative',
-        overflow: 'hidden',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.03) 0%, transparent 50%)',
-          pointerEvents: 'none',
-        }
-      }}
-    >
+    <AuroraBackground>
+      <ClickSpark />
       {/* Chat Container */}
       <Container maxWidth="md" sx={{ flex: 1, py: 3, overflow: 'hidden', position: 'relative', zIndex: 5 }}>
         <Box 
@@ -898,9 +932,11 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
                 >
                   <SearchIcon sx={{ fontSize: 40, color: '#00ff88' }} />
                 </Avatar>
-                <ShimmerText variant="h5" mb={2}>
-                  Ask any factual question
-                </ShimmerText>
+                <AnimatedGradientText>
+                  <Typography variant="h5" mb={2}>
+                    Ask any factual question
+                  </Typography>
+                </AnimatedGradientText>
                 <Typography 
                   variant="h6" 
                   sx={{ 
@@ -1030,6 +1066,67 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
                               <AIResponseCard response={response} />
                             </Box>
                           ))}
+
+                          {/* Translations actions and panel */}
+                          <Box display="flex" gap={1} mt={2}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<TranslateIcon />}
+                              onClick={() => translateResponse(result.id)}
+                              disabled={isTranslatingId !== null}
+                              sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}
+                            >
+                              {isTranslatingId === result.id ? 'Translating…' : 'Translate (EN/HI/RU/TE)'}
+                            </Button>
+                            {result.bestResponse?.reasoning && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<VolumeUpIcon />}
+                                onClick={() => speakText(result.bestResponse!.reasoning!, 'en-IN', result.id, 'en')}
+                                sx={{ background: 'linear-gradient(45deg, #00ff88, #00cc6a)', color: '#000' }}
+                              >
+                                Listen (EN)
+                              </Button>
+                            )}
+
+                            {ttsState.isSpeaking && ttsState.activeResultId === result.id && (
+                              <>
+                                {!ttsState.isPaused ? (
+                                  <Button size="small" variant="outlined" onClick={pauseTTS} sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>Pause</Button>
+                                ) : (
+                                  <Button size="small" variant="outlined" onClick={resumeTTS} sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>Resume</Button>
+                                )}
+                                <Button size="small" variant="outlined" onClick={stopTTS} sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>Stop</Button>
+                              </>
+                            )}
+                          </Box>
+
+                          {result.translations && (
+                            <PremiumCard sx={{ mb: 3, p: 2 }}>
+                              <CardContent sx={{ p: 2 }}>
+                                <ShimmerText variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>Translations</ShimmerText>
+                                <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={1.5}>
+                                  {Object.entries(result.translations).filter(([code]) => ['en','hi','ru','te'].includes(code)).map(([code, value]) => (
+                                    <GlassCard key={code} sx={{ p: 2 }}>
+                                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                                        <Typography variant="caption" sx={{ color: '#9ca3af' }}>{code === 'en' ? 'English (en)' : code === 'hi' ? 'Hindi (hi)' : code === 'ru' ? 'Russian (ru)' : code === 'te' ? 'Telugu (te)' : code}</Typography>
+                                        <IconButton size="small" onClick={() => {
+                                          const langMap: Record<string, string> = { en: 'en-IN', hi: 'hi-IN', ru: 'ru-RU', te: 'te-IN' };
+                                          const bcp = langMap[code] || 'en-IN';
+                                          speakText(value, bcp, result.id, code);
+                                        }}>
+                                          <VolumeUpIcon sx={{ fontSize: 16, color: '#e5e5e5' }} />
+                                        </IconButton>
+                                      </Box>
+                                      <Typography variant="body2" sx={{ color: '#e0e0e0', whiteSpace: 'pre-wrap' }}>{value}</Typography>
+                                    </GlassCard>
+                                  ))}
+                                </Box>
+                              </CardContent>
+                            </PremiumCard>
+                          )}
                         </Box>
                       </Grow>
                     )}
@@ -1130,7 +1227,7 @@ const PerplexityChat: React.FC<{ accountId?: string }> = ({ accountId }) => {
           </GlassCard>
         </Box>
       </Container>
-    </Box>
+    </AuroraBackground>
   );
 };
 

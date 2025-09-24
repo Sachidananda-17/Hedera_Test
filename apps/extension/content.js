@@ -46,8 +46,13 @@
   window.addEventListener('message', (event) => {
     try {
       const data = event.data || {};
-      if (data && data.source === 'hedera-notary' && data.type === 'ACCOUNT_DETECTED' && data.accountId) {
-        try { chrome.runtime.sendMessage(data); } catch (_) {}
+      if (data && data.source === 'hedera-notary') {
+        if (data.type === 'ACCOUNT_DETECTED' && data.accountId) {
+          try { chrome.runtime.sendMessage(data); } catch (_) {}
+        }
+        if (data.type === 'HP_CONNECT_RESULT') {
+          try { chrome.runtime.sendMessage({ type: 'HASHPACK_CONNECT_RESULT', ok: !!data.ok, accountId: data.accountId || '', error: data.error || '' }); } catch (_) {}
+        }
       }
     } catch (_) {}
   });
@@ -60,6 +65,7 @@
   const STYLE_ID = 'hedera-notary-overlay-style';
   let lastAction = null;
   let lastImageSrc = null;
+  let isHpConnecting = false;
 
   function ensureStyle() {
     if (document.getElementById(STYLE_ID)) return;
@@ -302,6 +308,17 @@
           const ta = body.querySelector('#hn-prompt');
           ok?.addEventListener('click', () => send(ta?.value || ''));
           cancel?.addEventListener('click', () => send(''));
+        } else if (msg.type === 'TRY_HASHPACK_CONNECT') {
+          if (isHpConnecting) return;
+          isHpConnecting = true;
+          // Inject a page script to call window.hashpack.connect() in page context
+          const code = `(() => { try { const send=(t,p)=>window.postMessage(Object.assign({source:'hedera-notary',type:t},p||{}),'*'); if (window.hashpack && typeof window.hashpack.connect==='function') { send('HP_CONNECT_STATUS',{status:'prompt'}); window.hashpack.connect().then((accountId)=>{ send('HP_CONNECT_RESULT',{ok:true,accountId}); }).catch((e)=>{ send('HP_CONNECT_RESULT',{ok:false,error:(e&&e.message)||String(e)}); }); } else { send('HP_CONNECT_RESULT',{ok:false,error:'hashpack_unavailable'}); } } catch(e) { window.postMessage({source:'hedera-notary',type:'HP_CONNECT_RESULT',ok:false,error:(e&&e.message)||String(e)},'*'); } })();`;
+          const s = document.createElement('script');
+          s.textContent = code;
+          (document.documentElement || document.head || document.body).appendChild(s);
+          s.remove();
+          // Reset flag shortly after
+          setTimeout(() => { isHpConnecting = false; }, 3000);
         }
       } catch (_) {}
     });

@@ -154,6 +154,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btn) btn.disabled = true;
     addBubble('ai', 'Requesting HashPack connection…');
     try {
+      // First try native HashPack connection if available in page
+      try { await chrome.tabs?.query({ active: true, currentWindow: true }, async (tabs) => {
+        const tabId = tabs && tabs[0] && tabs[0].id;
+        if (tabId) {
+          try { await chrome.tabs.sendMessage(tabId, { type: 'TRY_HASHPACK_CONNECT' }); } catch (_) {}
+        }
+      }); } catch (_) {}
+
+      // Fallback to WalletConnect flow
       await connectWalletConnect();
     } finally {
       isConnecting = false;

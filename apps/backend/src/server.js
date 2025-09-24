@@ -435,6 +435,78 @@ app.get('/api/ipfs/:cid', (req, res) => {
   });
 });
 
+// Translation endpoint for Indian languages
+app.post('/api/translate', async (req, res) => {
+  try {
+    const { text, languages } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Text is required' });
+    }
+
+    const targetLangs = Array.isArray(languages) && languages.length
+      ? languages
+      : ['hi','ru','te'];
+
+    const llm = createLLM();
+    if (!llm) {
+      return res.status(400).json({ success: false, message: 'No LLM configured (OpenAI or Gemini)' });
+    }
+
+    const system = 'You are a professional translator. Return output strictly as compact JSON with no commentary.';
+    const user = [
+      'Translate the following text into each of these language codes:',
+      targetLangs.join(', '),
+      '',
+      'Return ONLY a JSON object of shape { "translations": { "<code>": "<translated>" } }.',
+      'Do not include phonetics or transliteration. Keep meaning faithful and natural for native speakers. Preserve URLs.',
+      '',
+      'Text:',
+      '"""',
+      text,
+      '"""'
+    ].join('\n');
+
+    const prompt = `${system}\n\n${user}`;
+    const result = await llm.invoke(prompt);
+    const raw = typeof result === 'string' ? result : (result?.content || result?.text || '');
+
+    function tryParseJson(input) {
+      if (!input) return null;
+      const codeBlockMatch = input.match(/```json[\s\S]*?```/i) || input.match(/```[\s\S]*?```/i);
+      const candidate = codeBlockMatch ? codeBlockMatch[0].replace(/```json|```/gi, '').trim() : input.trim();
+      try { return JSON.parse(candidate); } catch (_) { /* noop */ }
+      const first = candidate.indexOf('{');
+      const last = candidate.lastIndexOf('}');
+      if (first !== -1 && last !== -1 && last > first) {
+        const sliced = candidate.slice(first, last + 1);
+        try { return JSON.parse(sliced); } catch (_) { /* noop */ }
+      }
+      return null;
+    }
+
+    const parsed = tryParseJson(raw);
+    const translations = parsed?.translations && typeof parsed.translations === 'object'
+      ? parsed.translations
+      : null;
+
+    if (!translations) {
+      return res.status(502).json({ success: false, message: 'Translation model returned unexpected format', raw });
+    }
+
+    // Ensure only requested languages and add English original for reference
+    const filtered = {};
+    for (const code of targetLangs) {
+      if (typeof translations[code] === 'string') filtered[code] = translations[code];
+    }
+    filtered['en'] = text;
+
+    res.json({ success: true, translations: filtered, languages: targetLangs, model: activeLlmLabel });
+  } catch (error) {
+    console.error('❌ Translate error:', error);
+    res.status(500).json({ success: false, message: 'Translation failed', error: error.message });
+  }
+});
+
 // Debug endpoint to check file in Filebase
 app.get('/api/debug/filebase/:filename', async (req, res) => {
   try {

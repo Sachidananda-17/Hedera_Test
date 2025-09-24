@@ -191,6 +191,24 @@ export class ApiService {
     return this.fetchApi<{ claim: ProcessedClaim }>(`/api/phase2/claims/${cid}`);
   }
 
+  // ==========================================================================
+  // Translation APIs
+  // ==========================================================================
+
+  async translate(
+    text: string,
+    languages?: string[]
+  ): Promise<ApiResponse<{ translations: Record<string, string>, languages: string[], model?: string }>> {
+    return this.fetchApi<{ translations: Record<string, string>, languages: string[], model?: string }>(
+      '/api/translate',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, languages })
+      }
+    );
+  }
+
   // ============================================================================
   // Utility Methods
   // ============================================================================
